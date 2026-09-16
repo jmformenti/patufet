@@ -1,6 +1,6 @@
-# agentic-sdlc — ad-hoc "@claude" mentions in issues, PR comments and reviews.
-# Installed by scripts/bootstrap.sh from https://github.com/jmformenti/agentic-sdlc
-name: agentic-sdlc-mention
+# patufet — ad-hoc "@claude" mentions in issues, PR comments and reviews.
+# Installed by scripts/bootstrap.sh from https://github.com/jmformenti/patufet
+name: patufet-mention
 
 on:
   issue_comment:
@@ -19,7 +19,7 @@ jobs:
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
-    uses: jmformenti/agentic-sdlc/.github/workflows/mention.yml@v1
+    uses: jmformenti/patufet/.github/workflows/mention.yml@v1
     permissions:
       contents: read
       pull-requests: read

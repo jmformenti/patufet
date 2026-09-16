@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Print how many automatic review reports a pull request already has.
-# A cycle is one trusted comment carrying the "<!-- agentic-sdlc:review" marker
+# A cycle is one trusted comment carrying the "<!-- patufet:review" marker
 # (review.yml posts exactly one per run).
 #
 # Usage: count-review-cycles.sh <owner/repo> <pr-number>
@@ -12,4 +12,4 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 gh api "repos/$repo/issues/$pr/comments" --paginate \
   | jq -s -r -L "$here" 'include "trusted-comments";
-      add | [ .[] | trusted | select(.body | contains("<!-- agentic-sdlc:review")) ] | length'
+      add | [ .[] | trusted | select(.body | contains("<!-- patufet:review")) ] | length'

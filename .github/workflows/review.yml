@@ -1,10 +1,10 @@
-# agentic-sdlc — review
+# patufet — review
 #
 # Reviews a pull request, posts inline comments plus one report comment
-# (marker "<!-- agentic-sdlc:review -->") and labels the PR with a verdict
+# (marker "<!-- patufet:review -->") and labels the PR with a verdict
 # (pass / warning / fail). The verdict is extracted deterministically from
 # Claude's structured output — no second model run to label.
-name: agentic-sdlc / review
+name: patufet / review
 
 on:
   workflow_call:
@@ -12,7 +12,7 @@ on:
       extra-instructions-file:
         description: Path (in the consumer repo) of a Markdown file appended to the base prompt (project review checklist)
         type: string
-        default: .github/agentic-sdlc/review.md
+        default: .github/patufet/review.md
       ci-check-names:
         description: Human description of the CI checks that already run tests/build on the PR (so the reviewer does not try to)
         type: string
@@ -77,7 +77,7 @@ jobs:
     timeout-minutes: ${{ inputs.timeout-minutes }}
     # A review of a superseded diff must never label after a newer one
     concurrency:
-      group: agentic-sdlc-review-${{ github.repository }}-${{ github.event.pull_request.number }}
+      group: patufet-review-${{ github.repository }}-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     permissions:
       contents: read
@@ -96,15 +96,15 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Fetch agentic-sdlc template
+      - name: Fetch patufet template
         run: |
-          TPL_DIR="$RUNNER_TEMP/agentic-sdlc"
+          TPL_DIR="$RUNNER_TEMP/patufet"
           mkdir -p "$TPL_DIR"
           gh api "repos/$TEMPLATE_REPO/tarball/$TEMPLATE_SHA" > "$RUNNER_TEMP/template.tar.gz"
           tar -xzf "$RUNNER_TEMP/template.tar.gz" -C "$TPL_DIR" --strip-components=1
           rm -f "$RUNNER_TEMP/template.tar.gz"
           echo "TPL_DIR=$TPL_DIR" >> "$GITHUB_ENV"
-          echo "agentic-sdlc template $TEMPLATE_REPO@$TEMPLATE_SHA extracted to $TPL_DIR"
+          echo "patufet template $TEMPLATE_REPO@$TEMPLATE_SHA extracted to $TPL_DIR"
         env:
           TEMPLATE_REPO: ${{ job.workflow_repository }}
           TEMPLATE_SHA: ${{ job.workflow_sha }}
@@ -153,9 +153,9 @@ jobs:
           fi
           export TPL_ci_section
           {
-            echo "text<<AGENTIC_SDLC_PROMPT_EOF"
+            echo "text<<PATUFET_PROMPT_EOF"
             "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/review.md" "$EXTRA_FILE"
-            echo "AGENTIC_SDLC_PROMPT_EOF"
+            echo "PATUFET_PROMPT_EOF"
           } >> "$GITHUB_OUTPUT"
 
       # Direct prompt instead of the code-review plugin: the plugin spawns
@@ -216,11 +216,11 @@ jobs:
           if [ -z "$verdict" ]; then
             echo "No structured output; falling back to the marker in the report comment"
             verdict=$("$TPL_DIR/scripts/find-review-report.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER" \
-              | grep -oE 'agentic-sdlc:review[^>]*verdict=(pass|warning|fail)' | head -1 | sed -E 's/.*verdict=//' || true)
+              | grep -oE 'patufet:review[^>]*verdict=(pass|warning|fail)' | head -1 | sed -E 's/.*verdict=//' || true)
           fi
           if [ -z "$verdict" ]; then
             gh pr edit "$PR_NUMBER" --add-label "$LABEL_NHR"
-            gh pr comment "$PR_NUMBER" --body "⚠️ agentic-sdlc: the review run produced no verdict. Manual review needed. See ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            gh pr comment "$PR_NUMBER" --body "⚠️ patufet: the review run produced no verdict. Manual review needed. See ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             exit 1
           fi
           echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
@@ -233,5 +233,5 @@ jobs:
           else
             echo "::warning::Label mismatch (verdict '$verdict', labels '$current'); repairing with GITHUB_TOKEN — the next stage will NOT be triggered automatically"
             "$TPL_DIR/scripts/set-verdict-label.sh" "$PR_NUMBER" "$verdict" "$LABEL_PASS" "$LABEL_WARNING" "$LABEL_FAIL" "$LABEL_NHR"
-            gh pr comment "$PR_NUMBER" --body "⚠️ agentic-sdlc: the reviewer returned verdict \`$verdict\` but did not label the PR itself; the label was repaired by the workflow, which cannot trigger the next stage. Remove and re-add the \`$expected\` label by hand to continue."
+            gh pr comment "$PR_NUMBER" --body "⚠️ patufet: the reviewer returned verdict \`$verdict\` but did not label the PR itself; the label was repaired by the workflow, which cannot trigger the next stage. Remove and re-add the \`$expected\` label by hand to continue."
           fi

@@ -17,7 +17,7 @@ implementer commits and pushes per coherent part, re-running `workflow_dispatch`
 same issue resumes from the branch.
 
 **`blocked` with "no approved plan found".**
-The plan comment lacks the `<!-- agentic-sdlc:plan -->` marker, or its author is not a
+The plan comment lacks the `<!-- patufet:plan -->` marker, or its author is not a
 collaborator (see security.md). For old issues use `legacy-plan-heading`.
 
 **The agent's push did not trigger the review.**
@@ -61,7 +61,7 @@ already has Chromium, set `install-playwright: false`.
 
 **`e2e up-script not found`.**
 The caller has the e2e job but the hook was not created. Either add
-`.github/agentic-sdlc/e2e-up.sh` (see e2e.md) or delete the job from the caller.
+`.github/patufet/e2e-up.sh` (see e2e.md) or delete the job from the caller.
 
 **The app registers a user then gets 403.**
 Project-specific readiness/seeding logic belongs to your hook; make it idempotent and
@@ -74,7 +74,7 @@ The Claude action skips itself with "Workflow validation failed. The workflow fi
 exist and have identical content to the version on the repository's default branch". This
 is the action's own protection on `pull_request`-triggered runs: it refuses to run from a
 workflow file that differs from the one on the default branch. It happens on the PR that
-first adds `agentic-sdlc.yml` **and on every later PR that edits it** (bumping `@v1`,
+first adds `patufet.yml` **and on every later PR that edits it** (bumping `@v1`,
 changing an input...). Expected behaviour: the review job fails with an explicit error, no
 label and no comment; merge such PRs by hand after the normal CI is green. Everything works
 again from the next PR.

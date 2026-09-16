@@ -27,7 +27,7 @@ Review the whole diff looking at:
 1. One inline comment (`mcp__github_inline_comment__create_inline_comment`) per concrete
    problem, stating its severity.
 2. One single summary comment on the PR (`gh pr comment {{pr}}`) whose **first line is exactly**
-   `<!-- agentic-sdlc:review cycle={{cycle}} verdict=VERDICT -->` where VERDICT is `pass`,
+   `<!-- patufet:review cycle={{cycle}} verdict=VERDICT -->` where VERDICT is `pass`,
    `warning` or `fail`, followed by a heading and the report: overall verdict, conformance with
    the issue plan (if any) and the list of problems found (or a statement that everything is
    correct).

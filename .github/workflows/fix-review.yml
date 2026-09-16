@@ -1,9 +1,9 @@
-# agentic-sdlc — fix-review
+# patufet — fix-review
 #
 # Applies the corrections requested by the latest automatic review report to
 # the PR branch. Called when the PR is labelled "warning" or "fail". Gives up
 # after max-review-cycles and hands the PR to a human.
-name: agentic-sdlc / fix-review
+name: patufet / fix-review
 
 on:
   workflow_call:
@@ -21,7 +21,7 @@ on:
         default: ''
       extra-instructions-file:
         type: string
-        default: .github/agentic-sdlc/implement.md
+        default: .github/patufet/implement.md
       language:
         type: string
         default: en
@@ -60,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.timeout-minutes }}
     concurrency:
-      group: agentic-sdlc-implement-${{ github.repository }}-pr-${{ github.event.pull_request.number }}
+      group: patufet-implement-${{ github.repository }}-pr-${{ github.event.pull_request.number }}
       cancel-in-progress: false
     permissions:
       contents: write
@@ -77,15 +77,15 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           persist-credentials: false
 
-      - name: Fetch agentic-sdlc template
+      - name: Fetch patufet template
         run: |
-          TPL_DIR="$RUNNER_TEMP/agentic-sdlc"
+          TPL_DIR="$RUNNER_TEMP/patufet"
           mkdir -p "$TPL_DIR"
           gh api "repos/$TEMPLATE_REPO/tarball/$TEMPLATE_SHA" > "$RUNNER_TEMP/template.tar.gz"
           tar -xzf "$RUNNER_TEMP/template.tar.gz" -C "$TPL_DIR" --strip-components=1
           rm -f "$RUNNER_TEMP/template.tar.gz"
           echo "TPL_DIR=$TPL_DIR" >> "$GITHUB_ENV"
-          echo "agentic-sdlc template $TEMPLATE_REPO@$TEMPLATE_SHA extracted to $TPL_DIR"
+          echo "patufet template $TEMPLATE_REPO@$TEMPLATE_SHA extracted to $TPL_DIR"
         env:
           TEMPLATE_REPO: ${{ job.workflow_repository }}
           TEMPLATE_SHA: ${{ job.workflow_sha }}
@@ -110,7 +110,7 @@ jobs:
           gh pr edit "$PR_NUMBER" --add-label "$LABEL_NHR"
           mention=""
           [ -n "$REVIEWER" ] && mention=" @$REVIEWER"
-          gh pr comment "$PR_NUMBER" --body "⚠️ agentic-sdlc: $MAX_CYCLES automatic review cycles reached without a \`pass\` verdict. Manual review needed.$mention"
+          gh pr comment "$PR_NUMBER" --body "⚠️ patufet: $MAX_CYCLES automatic review cycles reached without a \`pass\` verdict. Manual review needed.$mention"
 
       - name: Configure git credentials for push
         if: fromJSON(steps.cycles.outputs.count) < fromJSON(inputs.max-review-cycles)
@@ -140,9 +140,9 @@ jobs:
           fi
           export TPL_test_command
           {
-            echo "text<<AGENTIC_SDLC_PROMPT_EOF"
+            echo "text<<PATUFET_PROMPT_EOF"
             "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/fix-review.md" "$EXTRA_FILE"
-            echo "AGENTIC_SDLC_PROMPT_EOF"
+            echo "PATUFET_PROMPT_EOF"
           } >> "$GITHUB_OUTPUT"
 
       - name: Run Claude Code (apply the review)

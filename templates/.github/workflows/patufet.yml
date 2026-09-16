@@ -1,10 +1,10 @@
-# agentic-sdlc — autonomous issue → PR → review → fix → e2e flow.
-# Installed by scripts/bootstrap.sh from https://github.com/jmformenti/agentic-sdlc
+# patufet — autonomous issue → PR → review → fix → e2e flow.
+# Installed by scripts/bootstrap.sh from https://github.com/jmformenti/patufet
 #
 # Everything project-specific lives in the `with:` blocks below and in
-# .github/agentic-sdlc/*.md (prompt extensions) and *.sh (e2e hooks).
-# Reference of every input: https://github.com/jmformenti/agentic-sdlc/blob/main/docs/customization.md
-name: agentic-sdlc
+# .github/patufet/*.md (prompt extensions) and *.sh (e2e hooks).
+# Reference of every input: https://github.com/jmformenti/patufet/blob/main/docs/customization.md
+name: patufet
 
 on:
   issues:
@@ -24,7 +24,7 @@ jobs:
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issues' && github.event.label.name == 'ready-to-implement')
-    uses: jmformenti/agentic-sdlc/.github/workflows/implement.yml@v1
+    uses: jmformenti/patufet/.github/workflows/implement.yml@v1
     permissions:
       contents: write
       pull-requests: write
@@ -44,7 +44,7 @@ jobs:
       github.event_name == 'pull_request' &&
       contains(fromJSON('["opened","synchronize","ready_for_review","reopened"]'), github.event.action) &&
       github.event.pull_request.draft == false
-    uses: jmformenti/agentic-sdlc/.github/workflows/review.yml@v1
+    uses: jmformenti/patufet/.github/workflows/review.yml@v1
     permissions:
       contents: read
       pull-requests: write
@@ -61,7 +61,7 @@ jobs:
     if: |
       github.event_name == 'pull_request' && github.event.action == 'labeled' &&
       (github.event.label.name == 'warning' || github.event.label.name == 'fail')
-    uses: jmformenti/agentic-sdlc/.github/workflows/fix-review.yml@v1
+    uses: jmformenti/patufet/.github/workflows/fix-review.yml@v1
     permissions:
       contents: write
       pull-requests: write
@@ -76,12 +76,12 @@ jobs:
         echo "TODO: put your test/build commands here"
 
   # --- e2e (optional): remove this job if the app cannot run on a GitHub runner ---
-  # pass → start the app with .github/agentic-sdlc/e2e-up.sh and test it live
+  # pass → start the app with .github/patufet/e2e-up.sh and test it live
   e2e:
     if: |
       github.event_name == 'pull_request' && github.event.action == 'labeled' &&
       github.event.label.name == 'pass'
-    uses: jmformenti/agentic-sdlc/.github/workflows/e2e.yml@v1
+    uses: jmformenti/patufet/.github/workflows/e2e.yml@v1
     permissions:
       contents: read
       pull-requests: write

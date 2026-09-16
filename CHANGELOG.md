@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- **Breaking:** renamed the project from `agentic-sdlc` to `patufet`. Everything that carried
+  the old name changes: repository (`jmformenti/patufet`, GitHub redirects the old URL),
+  comment markers (`<!-- patufet:plan -->`, `<!-- patufet:review ... -->`,
+  `<!-- patufet:e2e ... -->`), the consumer directory `.github/patufet/`, the `PATUFET_*`
+  variables, the caller file names (`patufet.yml`, `patufet-mention.yml`) and the concurrency
+  groups. Existing plan comments with the old marker are not recognised any more: re-post the
+  plan, or add the new marker line to the comment.
+
 ## v1.0.0 — 2026-09-05
 
 First release, extracted from the `habitus-trainer` autonomous flow. Briefly published the

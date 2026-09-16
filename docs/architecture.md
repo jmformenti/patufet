@@ -14,7 +14,7 @@
 | `templates/` | data | caller workflows, prompt extensions, e2e hooks, `/plan-issue` command |
 
 The consumer repository owns the **triggers** (`on:` + `if:` in the caller) and the
-**project knowledge** (`with:` inputs, `.github/agentic-sdlc/*`). Everything else — prompts,
+**project knowledge** (`with:` inputs, `.github/patufet/*`). Everything else — prompts,
 guards, workarounds — lives here and is picked up by every consumer when the `v1` tag moves.
 
 ### How a reusable workflow gets its prompts
@@ -23,7 +23,7 @@ A `workflow_call` job runs in the **caller's** context: `github.event`, `github.
 and `actions/checkout` all refer to the consumer repository. To reach its own prompts and
 scripts, each job downloads this repository's tarball at `job.workflow_repository` /
 `job.workflow_sha` (the exact commit of the reusable workflow being executed) into
-`$RUNNER_TEMP/agentic-sdlc` — outside the workspace, so the implementing agent can never
+`$RUNNER_TEMP/patufet` — outside the workspace, so the implementing agent can never
 commit it. Prompts are rendered by substituting `{{placeholders}}` and appending the
 consumer's extension file, then passed to the action's `prompt` input.
 
@@ -61,7 +61,7 @@ Rules that make it work:
   label with `GITHUB_TOKEN` if they disagree — flagging that the next stage must be started
   by hand in that case. No second model run is needed.
 - The review cycle counter is the number of trusted comments carrying
-  `<!-- agentic-sdlc:review`. `fix-review` refuses to run once it reaches `max-review-cycles`
+  `<!-- patufet:review`. `fix-review` refuses to run once it reaches `max-review-cycles`
   and labels `needs-human-review` instead.
 - The implementer job fails (and labels `blocked`) when the action ends green without having
   opened a PR or marked the issue `to-refine` — the action can finish "successfully" after
@@ -74,9 +74,9 @@ the human text:
 
 | Marker | Written by | Read by |
 |---|---|---|
-| `<!-- agentic-sdlc:plan -->` | you (`/plan-issue`) | implement, review, e2e (`scripts/find-plan.sh`) |
-| `<!-- agentic-sdlc:review cycle=N verdict=V -->` | reviewer | review (fallback verdict), fix-review, cycle counter |
-| `<!-- agentic-sdlc:e2e verdict=V -->` | e2e tester | e2e (fallback verdict) |
+| `<!-- patufet:plan -->` | you (`/plan-issue`) | implement, review, e2e (`scripts/find-plan.sh`) |
+| `<!-- patufet:review cycle=N verdict=V -->` | reviewer | review (fallback verdict), fix-review, cycle counter |
+| `<!-- patufet:e2e verdict=V -->` | e2e tester | e2e (fallback verdict) |
 
 Only comments by `OWNER` / `MEMBER` / `COLLABORATOR` authors or by the `claude[bot]` /
 `github-actions[bot]` bots are considered (see [security.md](security.md)).
@@ -85,10 +85,10 @@ Only comments by `OWNER` / `MEMBER` / `COLLABORATOR` authors or by the `claude[b
 
 | Workflow | Group | Cancel in progress |
 |---|---|---|
-| implement | `agentic-sdlc-implement-<repo>-<issue>` | no (a running implementation is never killed) |
-| fix-review | `agentic-sdlc-implement-<repo>-pr-<pr>` | no |
-| review | `agentic-sdlc-review-<repo>-<pr>` | yes (a review of a superseded diff must not label after a newer one) |
-| e2e | `agentic-sdlc-e2e-<repo>-<pr>` | yes |
+| implement | `patufet-implement-<repo>-<issue>` | no (a running implementation is never killed) |
+| fix-review | `patufet-implement-<repo>-pr-<pr>` | no |
+| review | `patufet-review-<repo>-<pr>` | yes (a review of a superseded diff must not label after a newer one) |
+| e2e | `patufet-e2e-<repo>-<pr>` | yes |
 
 Different issues / PRs run in parallel.
 

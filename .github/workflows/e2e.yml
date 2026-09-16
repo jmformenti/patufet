@@ -1,26 +1,26 @@
-# agentic-sdlc — e2e
+# patufet — e2e
 #
 # Live functional test of a PR that passed the code review: the consumer's
 # `e2e-up.sh` hook starts the application, then Claude drives it with the
 # Playwright MCP server and reports. Optional stage — only wire it if the
 # application can be started on a GitHub runner. See docs/e2e.md.
-name: agentic-sdlc / e2e
+name: patufet / e2e
 
 on:
   workflow_call:
     inputs:
       up-script:
-        description: Script (in the consumer repo) that starts the app, waits for it and seeds test data. Must write KEY=VALUE lines (URLs, test credentials) to $AGENTIC_SDLC_E2E_ENV
+        description: Script (in the consumer repo) that starts the app, waits for it and seeds test data. Must write KEY=VALUE lines (URLs, test credentials) to $PATUFET_E2E_ENV
         type: string
-        default: .github/agentic-sdlc/e2e-up.sh
+        default: .github/patufet/e2e-up.sh
       down-script:
         description: Script that stops the app; always runs
         type: string
-        default: .github/agentic-sdlc/e2e-down.sh
+        default: .github/patufet/e2e-down.sh
       extra-instructions-file:
         description: What to test for this project (appended to the base prompt)
         type: string
-        default: .github/agentic-sdlc/e2e.md
+        default: .github/patufet/e2e.md
       human-reviewer:
         description: GitHub login (without @) to mention when everything works, so they merge
         type: string
@@ -80,7 +80,7 @@ jobs:
     timeout-minutes: ${{ inputs.timeout-minutes }}
     # A run based on a superseded verdict must never label after a newer one
     concurrency:
-      group: agentic-sdlc-e2e-${{ github.repository }}-${{ github.event.pull_request.number }}
+      group: patufet-e2e-${{ github.repository }}-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     permissions:
       contents: read
@@ -97,15 +97,15 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           persist-credentials: false
 
-      - name: Fetch agentic-sdlc template
+      - name: Fetch patufet template
         run: |
-          TPL_DIR="$RUNNER_TEMP/agentic-sdlc"
+          TPL_DIR="$RUNNER_TEMP/patufet"
           mkdir -p "$TPL_DIR"
           gh api "repos/$TEMPLATE_REPO/tarball/$TEMPLATE_SHA" > "$RUNNER_TEMP/template.tar.gz"
           tar -xzf "$RUNNER_TEMP/template.tar.gz" -C "$TPL_DIR" --strip-components=1
           rm -f "$RUNNER_TEMP/template.tar.gz"
           echo "TPL_DIR=$TPL_DIR" >> "$GITHUB_ENV"
-          echo "agentic-sdlc template $TEMPLATE_REPO@$TEMPLATE_SHA extracted to $TPL_DIR"
+          echo "patufet template $TEMPLATE_REPO@$TEMPLATE_SHA extracted to $TPL_DIR"
         env:
           TEMPLATE_REPO: ${{ job.workflow_repository }}
           TEMPLATE_SHA: ${{ job.workflow_sha }}
@@ -114,17 +114,17 @@ jobs:
         env:
           UP_SCRIPT: ${{ inputs.up-script }}
         run: |
-          AGENTIC_SDLC_E2E_ENV="$RUNNER_TEMP/e2e.env"
-          echo "AGENTIC_SDLC_E2E_ENV=$AGENTIC_SDLC_E2E_ENV" >> "$GITHUB_ENV"
-          export AGENTIC_SDLC_E2E_ENV
+          PATUFET_E2E_ENV="$RUNNER_TEMP/e2e.env"
+          echo "PATUFET_E2E_ENV=$PATUFET_E2E_ENV" >> "$GITHUB_ENV"
+          export PATUFET_E2E_ENV
           if [ ! -f "$UP_SCRIPT" ]; then
-            echo "::error::e2e up-script '$UP_SCRIPT' not found. See docs/e2e.md in agentic-sdlc."
+            echo "::error::e2e up-script '$UP_SCRIPT' not found. See docs/e2e.md in patufet."
             exit 1
           fi
-          : > "$AGENTIC_SDLC_E2E_ENV"
+          : > "$PATUFET_E2E_ENV"
           bash "$UP_SCRIPT"
           echo "Environment exported by the hook:"
-          sed 's/=.*/=…/' "$AGENTIC_SDLC_E2E_ENV"
+          sed 's/=.*/=…/' "$PATUFET_E2E_ENV"
 
       # `timeout` + retries: on a real run the inner apt-get of this command
       # hung for 27 min against a flaky runner mirror until the job timed out
@@ -167,7 +167,7 @@ jobs:
           HAS_PLAN: ${{ steps.context.outputs.has_plan }}
           EXTRA_FILE: ${{ inputs.extra-instructions-file }}
         run: |
-          TPL_e2e_env="$(sed -E 's/^([^=]+)=(.*)$/- \1: \2/' "$AGENTIC_SDLC_E2E_ENV")"
+          TPL_e2e_env="$(sed -E 's/^([^=]+)=(.*)$/- \1: \2/' "$PATUFET_E2E_ENV")"
           [ -n "$TPL_e2e_env" ] || TPL_e2e_env="(the up-script exported nothing)"
           export TPL_e2e_env
           if [ "$HAS_PLAN" = "true" ]; then
@@ -179,9 +179,9 @@ jobs:
           fi
           export TPL_plan_section
           {
-            echo "text<<AGENTIC_SDLC_PROMPT_EOF"
+            echo "text<<PATUFET_PROMPT_EOF"
             "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/e2e.md" "$EXTRA_FILE"
-            echo "AGENTIC_SDLC_PROMPT_EOF"
+            echo "PATUFET_PROMPT_EOF"
           } >> "$GITHUB_OUTPUT"
 
       - name: Live functional test with Claude + Playwright MCP
@@ -223,11 +223,11 @@ jobs:
           verdict=$(jq -r '.verdict // empty' <<< "$STRUCTURED" 2>/dev/null || true)
           if [ -z "$verdict" ]; then
             verdict=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --paginate \
-              --jq '[ .[] | select(.body | contains("<!-- agentic-sdlc:e2e")) ] | last | .body // empty' \
-              | grep -oE 'agentic-sdlc:e2e[^>]*verdict=(pass|fail)' | head -1 | sed -E 's/.*verdict=//' || true)
+              --jq '[ .[] | select(.body | contains("<!-- patufet:e2e")) ] | last | .body // empty' \
+              | grep -oE 'patufet:e2e[^>]*verdict=(pass|fail)' | head -1 | sed -E 's/.*verdict=//' || true)
           fi
           if [ -z "$verdict" ] || [ "$CLAUDE_OUTCOME" != "success" ]; then
-            gh pr comment "$PR_NUMBER" --body "⚠️ agentic-sdlc: the live e2e run produced no verdict (outcome: $CLAUDE_OUTCOME). Manual check needed. See ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            gh pr comment "$PR_NUMBER" --body "⚠️ patufet: the live e2e run produced no verdict (outcome: $CLAUDE_OUTCOME). Manual check needed. See ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             exit 1
           fi
           if [ "$verdict" = "fail" ]; then
@@ -237,12 +237,12 @@ jobs:
             else
               echo "::warning::e2e failed but the PR is not labelled '$LABEL_FAIL' (labels: '$current'); repairing with GITHUB_TOKEN — fix-review will NOT be triggered automatically"
               "$TPL_DIR/scripts/set-verdict-label.sh" "$PR_NUMBER" fail "$LABEL_PASS" "$LABEL_WARNING" "$LABEL_FAIL"
-              gh pr comment "$PR_NUMBER" --body "⚠️ agentic-sdlc: the e2e tester reported a failure but did not relabel the PR; the label was repaired by the workflow, which cannot trigger the next stage. Remove and re-add the \`$LABEL_FAIL\` label by hand to continue."
+              gh pr comment "$PR_NUMBER" --body "⚠️ patufet: the e2e tester reported a failure but did not relabel the PR; the label was repaired by the workflow, which cannot trigger the next stage. Remove and re-add the \`$LABEL_FAIL\` label by hand to continue."
             fi
           else
             mention=""
             [ -n "$REVIEWER" ] && mention=" @$REVIEWER"
-            gh pr comment "$PR_NUMBER" --body "✅ agentic-sdlc: code review and live e2e test passed. Ready for human review and merge.$mention"
+            gh pr comment "$PR_NUMBER" --body "✅ patufet: code review and live e2e test passed. Ready for human review and merge.$mention"
           fi
 
       - name: Stop the application (e2e-down hook)

@@ -21,7 +21,7 @@ check live:
 ## Output
 
 Post one single comment on the PR (`gh pr comment {{pr}}`) whose **first line is exactly**
-`<!-- agentic-sdlc:e2e verdict=VERDICT -->` where VERDICT is `pass` or `fail`, followed by a
+`<!-- patufet:e2e verdict=VERDICT -->` where VERDICT is `pass` or `fail`, followed by a
 heading and a description of what you tested and the result. If something fails, explain
 precisely what you saw broken (steps to reproduce, error message, observed behaviour).
 

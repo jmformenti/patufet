@@ -31,4 +31,4 @@ jobs:
         run: ./actionlint -color templates/.github/workflows/*.yml
 
       - name: shellcheck
-        run: shellcheck scripts/*.sh templates/.github/agentic-sdlc/*.sh
+        run: shellcheck scripts/*.sh templates/.github/patufet/*.sh

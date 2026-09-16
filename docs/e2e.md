@@ -10,12 +10,12 @@ the flow ends at the code review `pass` and the reviewer merges.
 
 ## Hook contract
 
-### `e2e-up.sh` (input `up-script`, default `.github/agentic-sdlc/e2e-up.sh`)
+### `e2e-up.sh` (input `up-script`, default `.github/patufet/e2e-up.sh`)
 
 - Runs with `bash`, from the repository root, PR branch checked out.
 - Must **start** the app, **wait** until it is usable and **seed** the test data.
 - Must **exit non-zero** if the app is not usable — the job fails without posting a verdict.
-- Must **append `KEY=VALUE` lines** to the file `$AGENTIC_SDLC_E2E_ENV`. They are rendered
+- Must **append `KEY=VALUE` lines** to the file `$PATUFET_E2E_ENV`. They are rendered
   into the prompt as a bullet list, so the tester knows the URL and the test credentials.
   Use throwaway credentials only: the values appear in the prompt and in the job log.
 
@@ -48,12 +48,12 @@ curl -sf -X POST http://localhost:8080/api/auth/register/runner -H 'Content-Type
   echo "APP_URL=http://localhost:3000"
   echo "RUNNER_EMAIL=runner@test.local"
   echo "RUNNER_PASSWORD=test1234"
-} >> "$AGENTIC_SDLC_E2E_ENV"
+} >> "$PATUFET_E2E_ENV"
 ```
 
 ## Verdict handling
 
-The tester posts one comment whose first line is `<!-- agentic-sdlc:e2e verdict=pass|fail -->`
+The tester posts one comment whose first line is `<!-- patufet:e2e verdict=pass|fail -->`
 and returns the same verdict as structured output. A deterministic step then:
 
 - `fail` → relabels the PR `fail` with the app token, which re-triggers `fix-review`;
@@ -66,9 +66,9 @@ labels are left untouched.
 
 | Input | Default |
 |---|---|
-| `up-script` | `.github/agentic-sdlc/e2e-up.sh` |
-| `down-script` | `.github/agentic-sdlc/e2e-down.sh` |
-| `extra-instructions-file` | `.github/agentic-sdlc/e2e.md` |
+| `up-script` | `.github/patufet/e2e-up.sh` |
+| `down-script` | `.github/patufet/e2e-down.sh` |
+| `extra-instructions-file` | `.github/patufet/e2e.md` |
 | `human-reviewer` | `''` |
 | `install-playwright` | `true` (set false if your image already has Chromium) |
 | `allowed-tools` | `mcp__playwright__*,Bash(gh pr *),Bash(gh issue *)` |

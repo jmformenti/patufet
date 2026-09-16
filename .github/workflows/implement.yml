@@ -1,9 +1,9 @@
-# agentic-sdlc — implement
+# patufet — implement
 #
 # Turns an issue with an approved plan into a pull request. Called by the
 # consumer repository when the "ready-to-implement" label is added (or via
 # workflow_dispatch). See docs/architecture.md for the full state machine.
-name: agentic-sdlc / implement
+name: patufet / implement
 
 on:
   workflow_call:
@@ -23,7 +23,7 @@ on:
       extra-instructions-file:
         description: Path (in the consumer repo) of a Markdown file appended to the base prompt
         type: string
-        default: .github/agentic-sdlc/implement.md
+        default: .github/patufet/implement.md
       language:
         description: Language for the comments and PR descriptions Claude writes (free text or ISO code)
         type: string
@@ -79,7 +79,7 @@ jobs:
     timeout-minutes: ${{ inputs.timeout-minutes }}
     # One queue per issue: different issues run in parallel, the same issue never twice at once
     concurrency:
-      group: agentic-sdlc-implement-${{ github.repository }}-${{ inputs.issue-number }}
+      group: patufet-implement-${{ github.repository }}-${{ inputs.issue-number }}
       cancel-in-progress: false
     permissions:
       contents: write
@@ -99,15 +99,15 @@ jobs:
       # Prompts and helper scripts come from the template repo at the exact
       # commit of this reusable workflow (job.workflow_* identity), extracted
       # outside the workspace so the agent can never commit them
-      - name: Fetch agentic-sdlc template
+      - name: Fetch patufet template
         run: |
-          TPL_DIR="$RUNNER_TEMP/agentic-sdlc"
+          TPL_DIR="$RUNNER_TEMP/patufet"
           mkdir -p "$TPL_DIR"
           gh api "repos/$TEMPLATE_REPO/tarball/$TEMPLATE_SHA" > "$RUNNER_TEMP/template.tar.gz"
           tar -xzf "$RUNNER_TEMP/template.tar.gz" -C "$TPL_DIR" --strip-components=1
           rm -f "$RUNNER_TEMP/template.tar.gz"
           echo "TPL_DIR=$TPL_DIR" >> "$GITHUB_ENV"
-          echo "agentic-sdlc template $TEMPLATE_REPO@$TEMPLATE_SHA extracted to $TPL_DIR"
+          echo "patufet template $TEMPLATE_REPO@$TEMPLATE_SHA extracted to $TPL_DIR"
         env:
           TEMPLATE_REPO: ${{ job.workflow_repository }}
           TEMPLATE_SHA: ${{ job.workflow_sha }}
@@ -122,7 +122,7 @@ jobs:
         run: |
           if ! "$TPL_DIR/scripts/find-plan.sh" "$GITHUB_REPOSITORY" "$ISSUE_NUMBER" "$LEGACY_HEADING" > "$RUNNER_TEMP/plan.md"; then
             gh issue edit "$ISSUE_NUMBER" --remove-label "$LABEL_READY" --add-label "$LABEL_BLOCKED"
-            gh issue comment "$ISSUE_NUMBER" --body "⚠️ agentic-sdlc: no approved plan found. The plan must be a comment containing \`<!-- agentic-sdlc:plan -->\` written by a repository collaborator. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            gh issue comment "$ISSUE_NUMBER" --body "⚠️ patufet: no approved plan found. The plan must be a comment containing \`<!-- patufet:plan -->\` written by a repository collaborator. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             exit 1
           fi
 
@@ -156,9 +156,9 @@ jobs:
           fi
           export TPL_test_command
           {
-            echo "text<<AGENTIC_SDLC_PROMPT_EOF"
+            echo "text<<PATUFET_PROMPT_EOF"
             "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/implement.md" "$EXTRA_FILE"
-            echo "AGENTIC_SDLC_PROMPT_EOF"
+            echo "PATUFET_PROMPT_EOF"
           } >> "$GITHUB_OUTPUT"
 
       # Without --allowedTools the action denies Bash by default and the agent
@@ -183,7 +183,7 @@ jobs:
           LABEL_BLOCKED: ${{ inputs.label-blocked }}
         run: |
           gh issue edit "$ISSUE_NUMBER" --add-label "$LABEL_BLOCKED"
-          gh issue comment "$ISSUE_NUMBER" --body "⚠️ agentic-sdlc: the automatic implementation run failed. See ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          gh issue comment "$ISSUE_NUMBER" --body "⚠️ patufet: the automatic implementation run failed. See ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       # The action can finish green without having done anything (e.g. tool
       # denials): if there is no PR and the issue is not to-refine, block it
@@ -196,7 +196,7 @@ jobs:
           refine=$(gh issue view "$ISSUE_NUMBER" --json labels | jq -r --arg l "$LABEL_TO_REFINE" '[.labels[].name] | contains([$l])')
           if [ "$prs" -eq 0 ] && [ "$refine" != "true" ]; then
             gh issue edit "$ISSUE_NUMBER" --add-label "$LABEL_BLOCKED"
-            gh issue comment "$ISSUE_NUMBER" --body "⚠️ agentic-sdlc: the run ended without opening a PR or marking the issue as \`$LABEL_TO_REFINE\`. See ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            gh issue comment "$ISSUE_NUMBER" --body "⚠️ patufet: the run ended without opening a PR or marking the issue as \`$LABEL_TO_REFINE\`. See ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             exit 1
           fi
 

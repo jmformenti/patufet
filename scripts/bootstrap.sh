@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Install agentic-sdlc in the repository of the current directory.
+# Install patufet in the repository of the current directory.
 #
-#   bash <(curl -sSL https://raw.githubusercontent.com/jmformenti/agentic-sdlc/main/scripts/bootstrap.sh) \
+#   bash <(curl -sSL https://raw.githubusercontent.com/jmformenti/patufet/main/scripts/bootstrap.sh) \
 #     --reviewer <github-login> [--language ca] [--ref v1] [--with-e2e] [--dry-run]
 #
 # What it does (idempotent, never overwrites an existing file):
@@ -12,7 +12,7 @@
 #   4. checks that CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY is set.
 set -euo pipefail
 
-TEMPLATE_REPO="jmformenti/agentic-sdlc"
+TEMPLATE_REPO="jmformenti/patufet"
 reviewer=""
 language="en"
 ref="v1"
@@ -37,7 +37,7 @@ command -v gh >/dev/null || { echo "gh (GitHub CLI) is required" >&2; exit 1; }
 git rev-parse --show-toplevel >/dev/null 2>&1 || { echo "Run this from inside a git repository" >&2; exit 1; }
 cd "$(git rev-parse --show-toplevel)"
 repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
-echo "Installing agentic-sdlc@$ref into $repo (reviewer: ${reviewer:-none}, language: $language, e2e: $with_e2e)"
+echo "Installing patufet@$ref into $repo (reviewer: ${reviewer:-none}, language: $language, e2e: $with_e2e)"
 
 run() { if $dry_run; then echo "[dry-run] $*"; else "$@"; fi; }
 
@@ -63,19 +63,19 @@ copy() {
   run mkdir -p "$(dirname "$dst")"
   run cp "$src" "$dst"
 }
-copy .github/workflows/agentic-sdlc.yml
-copy .github/workflows/agentic-sdlc-mention.yml
-copy .github/agentic-sdlc/implement.md
-copy .github/agentic-sdlc/review.md
+copy .github/workflows/patufet.yml
+copy .github/workflows/patufet-mention.yml
+copy .github/patufet/implement.md
+copy .github/patufet/review.md
 copy .claude/commands/plan-issue.md
 if $with_e2e; then
-  copy .github/agentic-sdlc/e2e.md
-  copy .github/agentic-sdlc/e2e-up.sh
-  copy .github/agentic-sdlc/e2e-down.sh
+  copy .github/patufet/e2e.md
+  copy .github/patufet/e2e-up.sh
+  copy .github/patufet/e2e-down.sh
 fi
 
 # --- fill in the caller ------------------------------------------------------
-caller=.github/workflows/agentic-sdlc.yml
+caller=.github/workflows/patufet.yml
 if ! $dry_run && [ -f "$caller" ]; then
   sed -i.bak \
     -e "s|@v1$|@$ref|" \
@@ -86,7 +86,7 @@ if ! $dry_run && [ -f "$caller" ]; then
     sed -i.bak '/# --- e2e (optional)/,/# --- end e2e ---/d' "$caller"
   fi
   rm -f "$caller.bak"
-  sed -i.bak -e "s|@v1$|@$ref|" .github/workflows/agentic-sdlc-mention.yml && rm -f .github/workflows/agentic-sdlc-mention.yml.bak
+  sed -i.bak -e "s|@v1$|@$ref|" .github/workflows/patufet-mention.yml && rm -f .github/workflows/patufet-mention.yml.bak
 fi
 
 # --- labels ------------------------------------------------------------------
@@ -112,8 +112,8 @@ cat <<MSG
 
 Done. Next steps:
   1. Edit $caller: fill in test-command and ci-check-names.
-  2. Edit .github/agentic-sdlc/*.md with your project's checklist (or delete them).
-$( $with_e2e && echo "  3. Adapt .github/agentic-sdlc/e2e-up.sh / e2e-down.sh to start your app." )
+  2. Edit .github/patufet/*.md with your project's checklist (or delete them).
+$( $with_e2e && echo "  3. Adapt .github/patufet/e2e-up.sh / e2e-down.sh to start your app." )
   4. Install the Claude GitHub App on the repository if not done: https://github.com/apps/claude
   5. Commit, then open an issue and run /plan-issue <n> from Claude Code.
 Docs: https://github.com/$TEMPLATE_REPO#readme

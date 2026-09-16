@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Print the latest automatic review report of a pull request, i.e. the most
-# recent comment carrying the "<!-- agentic-sdlc:review" marker written by a
+# recent comment carrying the "<!-- patufet:review" marker written by a
 # trusted author (the review bot or a repository collaborator). Untrusted
 # comments are ignored because the fix-review agent runs with write access and
 # must never act on instructions planted by an arbitrary commenter.
@@ -15,7 +15,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 report=$(gh api "repos/$repo/issues/$pr/comments" --paginate \
   | jq -s -r -L "$here" 'include "trusted-comments";
-      add | [ .[] | trusted | select(.body | contains("<!-- agentic-sdlc:review")) ] | last | .body // empty')
+      add | [ .[] | trusted | select(.body | contains("<!-- patufet:review")) ] | last | .body // empty')
 
 if [ -z "$report" ]; then
   echo "find-review-report: PR #$pr has no trusted review report" >&2

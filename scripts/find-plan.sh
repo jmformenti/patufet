@@ -7,7 +7,7 @@
 # an untrusted author (prompt injection). The most recent matching comment wins.
 #
 # Usage: find-plan.sh <owner/repo> <issue-number> [<legacy-heading>]
-#   The plan comment must contain the marker "<!-- agentic-sdlc:plan -->".
+#   The plan comment must contain the marker "<!-- patufet:plan -->".
 #   <legacy-heading> (optional) additionally accepts comments whose body contains
 #   that heading, for repositories migrating from a pre-template setup.
 # Exit code 1 (and nothing on stdout) when no trusted plan exists.
@@ -16,7 +16,7 @@ set -euo pipefail
 repo="${1:?usage: find-plan.sh <owner/repo> <issue-number> [<legacy-heading>]}"
 issue="${2:?issue number is required}"
 legacy="${3:-}"
-marker="<!-- agentic-sdlc:plan -->"
+marker="<!-- patufet:plan -->"
 
 # shellcheck disable=SC2016  # $marker/$legacy are jq variables
 plan=$(gh api "repos/$repo/issues/$issue/comments" --paginate \
