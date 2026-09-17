@@ -36,7 +36,7 @@ on:
         default: ''
       max-turns:
         type: number
-        default: 100
+        default: 200
       allowed-tools:
         type: string
         default: mcp__playwright__*,Bash(gh pr *),Bash(gh issue *)

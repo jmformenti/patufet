@@ -72,7 +72,7 @@ labels are left untouched.
 | `human-reviewer` | `''` |
 | `install-playwright` | `true` (set false if your image already has Chromium) |
 | `allowed-tools` | `mcp__playwright__*,Bash(gh pr *),Bash(gh issue *)` |
-| `max-turns` | `100` |
+| `max-turns` | `200` |
 | `timeout-minutes` | `30` |
 
 The Playwright install is wrapped in `timeout 300` × 3 attempts: on a real run its inner

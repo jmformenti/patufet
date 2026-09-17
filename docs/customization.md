@@ -16,7 +16,7 @@ Common to `implement`, `review`, `fix-review`, `e2e`:
 |---|---|---|
 | `language` | `en` | Language of the comments / PR descriptions Claude writes. Free text or ISO code. Code and commit messages follow the repository conventions, not this. |
 | `model` | *(action default)* | Passed as `--model`. A cheaper model for `review` is a common saving. |
-| `max-turns` | 200 (implement, fix-review) / 100 (review, e2e) | Hard cap on agent turns. |
+| `max-turns` | 400 (implement, review, fix-review) / 200 (e2e) | Hard cap on agent turns. |
 | `allowed-tools` | per workflow | `--allowedTools`. Implementers need `Bash`; reviewers get a read-only set plus the inline-comment MCP tool. |
 | `claude-args-extra` | `''` | Anything else for `claude_args`. |
 | `show-full-output` | `true` | Full transcript in the job log. Needed to diagnose tool denials; may echo secrets printed by tools. |
@@ -44,7 +44,7 @@ Common to `implement`, `review`, `fix-review`, `e2e`:
 
 | Input | Default | Notes |
 |---|---|---|
-| `max-review-cycles` | `3` | Reports before handing over to a human. |
+| `max-review-cycles` | `10` | Reports before handing over to a human. |
 | `human-reviewer` | `''` | Login (no `@`) mentioned when the limit is reached. |
 | `test-command` | `''` | Same as implement. |
 

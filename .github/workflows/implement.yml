@@ -35,7 +35,7 @@ on:
       max-turns:
         description: --max-turns for the agent
         type: number
-        default: 200
+        default: 400
       allowed-tools:
         description: --allowedTools for the agent
         type: string

@@ -9,6 +9,9 @@
   variables, the caller file names (`patufet.yml`, `patufet-mention.yml`) and the concurrency
   groups. Existing plan comments with the old marker are not recognised any more: re-post the
   plan, or add the new marker line to the comment.
+- Defaults raised to the values habitus-trainer settled on: `max-turns` 400 for implement,
+  review and fix-review (review was 100, the others 200), 200 for e2e (was 100), and
+  `max-review-cycles` 10 (was 3). The template caller now also sets `max-review-cycles: 10`.
 - Docs: the flow and state-machine diagrams in `README.md` and `docs/architecture.md` are now
   Mermaid instead of ASCII art.
 

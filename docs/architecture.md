@@ -108,11 +108,11 @@ Different issues / PRs run in parallel.
 
 Per issue, in Claude runs (each bounded by `max-turns`):
 
-- 1 × implement (`max-turns` 200 by default; a medium full-stack issue used ~200 turns in
+- 1 × implement (`max-turns` 400 by default; a medium full-stack issue used ~200 turns in
   practice, a small one far fewer).
-- 1 × review per push to the PR (default `max-turns` 100).
-- up to `max-review-cycles − 1` × fix-review (default limit 3 → at most 2 fix runs).
-- 1 × e2e per `pass` (optional).
+- 1 × review per push to the PR (default `max-turns` 400).
+- up to `max-review-cycles − 1` × fix-review (default limit 10 → at most 9 fix runs).
+- 1 × e2e per `pass` (optional, default `max-turns` 200).
 
 Levers: `max-review-cycles`, `max-turns`, `model` (e.g. a cheaper model for review), keeping
 issues small (the plan gate is the real cost control), and not enabling e2e until the rest is

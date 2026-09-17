@@ -12,7 +12,7 @@ one run) and the agent could not run git or tests. The template always passes
 
 **The run hit `max-turns` mid-way.**
 100 turns were short for a medium issue; one run used 193 for the frontend half of a
-full-stack issue. Defaults are 200; raise per repository with `max-turns`. Because the
+full-stack issue. Defaults are now 400; raise per repository with `max-turns`. Because the
 implementer commits and pushes per coherent part, re-running `workflow_dispatch` with the
 same issue resumes from the branch.
 

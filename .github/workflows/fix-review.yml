@@ -11,7 +11,7 @@ on:
       max-review-cycles:
         description: Maximum number of automatic review reports before asking for a human
         type: number
-        default: 3
+        default: 10
       test-command:
         type: string
         default: ''
@@ -30,7 +30,7 @@ on:
         default: ''
       max-turns:
         type: number
-        default: 200
+        default: 400
       allowed-tools:
         type: string
         default: Bash,Edit,Write,Read,Glob,Grep

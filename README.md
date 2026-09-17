@@ -62,8 +62,8 @@ Markdown files appended to the base prompts. See [docs/customization.md](docs/cu
 ## Cost and safety — read before enabling
 
 - **Runs are billed against your Claude subscription/API key.** One issue typically costs one
-  implement run, one review run per push, plus fix runs. Defaults are conservative
-  (`max-review-cycles: 3`, `max-turns` 100–200). See the cost section in
+  implement run, one review run per push, plus fix runs. Defaults follow real usage on
+  habitus-trainer (`max-review-cycles: 10`, `max-turns` 200–400). See the cost section in
   [docs/architecture.md](docs/architecture.md#cost).
 - **The agent has write access to your repository.** Only collaborators can start it (labels),
   and it only reads plans and review reports written by collaborators or the automation bots.

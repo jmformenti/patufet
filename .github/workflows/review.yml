@@ -29,7 +29,7 @@ on:
         default: ''
       max-turns:
         type: number
-        default: 100
+        default: 400
       allowed-tools:
         type: string
         default: Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh api:*),Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment
