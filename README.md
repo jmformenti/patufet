@@ -46,10 +46,11 @@ Review and merge the PR, do the human steps it lists.
 Iterate on the plan until you approve it. The agent then labels the issue and the flow
 takes over: a PR on `agent/issue-42` appears, every push is reviewed and fixed until the
 label is `pass` (or `needs-human-review` after the cycle limit, which mentions your
-reviewer). With the e2e stage enabled, `pass` also runs the live test. Watch it with:
+reviewer). With the e2e stage enabled, `pass` also runs the live test. Check where it is
+(state, draft or not, labels) with:
 
 ```bash
-gh pr list --search "head:agent/issue-42" --json number,isDraft,labels,url
+gh pr view agent/issue-42
 ```
 
 A draft PR and the issue labelled `to-refine` mean the implementer has a question: answer
@@ -66,7 +67,9 @@ https://raw.githubusercontent.com/jmformenti/patufet/v1/AGENTS.md
 It opens a PR that removes the files and labels and tells you whether the secret and the
 App are still used by anything else. Manual steps: [Uninstall](#uninstall).
 
-## Quick start
+The rest of this README is the manual path and the reference.
+
+## Quick start (manual)
 
 Requirements: a GitHub repository, the [Claude GitHub App](https://github.com/apps/claude)
 installed on it, a `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`) or `ANTHROPIC_API_KEY`
