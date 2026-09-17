@@ -8,8 +8,9 @@
 #   1. copies the caller workflows, the prompt extension files, the e2e hooks
 #      (only with --with-e2e) and the /plan-issue command;
 #   2. fills in --reviewer / --language / --ref in the caller workflow;
-#   3. creates the 8 flow labels;
-#   4. checks that CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY is set.
+#   3. creates the 8 flow labels (existing ones are left untouched, with a warning);
+#   4. checks that CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY is set;
+#   5. warns about workflows that already use anthropics/claude-code-action.
 set -euo pipefail
 
 TEMPLATE_REPO="jmformenti/patufet"
@@ -55,6 +56,17 @@ else
   templates="$tmp/templates"
 fi
 
+# --- existing automation ----------------------------------------------------
+# Another workflow on claude-code-action (the action's own @claude / review
+# examples) would answer the same events twice: two replies per mention, two
+# reviews per push, twice the cost.
+existing=$(grep -lE 'anthropics/claude-code-action' .github/workflows/*.yml .github/workflows/*.yaml 2>/dev/null || true)
+if [ -n "$existing" ]; then
+  echo "WARNING: these workflows already use anthropics/claude-code-action and will run alongside patufet:"
+  echo "$existing" | sed 's/^/         /'
+  echo "         Remove them, or delete .github/workflows/patufet-mention.yml if you only want their @claude handling."
+fi
+
 # --- copy files (never overwrite) --------------------------------------------
 copy() {
   local src="$templates/$1" dst="$1"
@@ -90,15 +102,32 @@ if ! $dry_run && [ -f "$caller" ]; then
 fi
 
 # --- labels ------------------------------------------------------------------
+# The flow reacts to these names (see the caller's `if:`). A label that already
+# exists is left as it is: it may carry another meaning in this repository, in
+# which case rename patufet's through the `label-*` inputs instead.
 echo "Creating labels..."
-run gh label create ready-to-implement --color 0E8A16 --description "Plan approved, ready for the implementer" --force
-run gh label create in-progress        --color FBCA04 --description "The implementer is working on it" --force
-run gh label create to-refine          --color D93F0B --description "The implementer has a question, plan needs refining" --force
-run gh label create blocked            --color 5319E7 --description "Automatic run failed (quota/error)" --force
-run gh label create pass               --color 0E8A16 --description "Automatic review: mergeable" --force
-run gh label create warning            --color FBCA04 --description "Automatic review: fixes required" --force
-run gh label create fail               --color B60205 --description "Automatic review: serious problems" --force
-run gh label create needs-human-review --color 5319E7 --description "Cycle limit reached, human review needed" --force
+existing_labels=$(gh label list --limit 1000 --json name --jq '.[].name' 2>/dev/null || true)
+label() {
+  local name="$1" color="$2" description="$3"
+  if grep -qxF "$name" <<<"$existing_labels"; then
+    echo "  keep   $name (already exists, left untouched)"
+    return
+  fi
+  echo "  create $name"
+  run gh label create "$name" --color "$color" --description "$description"
+}
+label ready-to-implement 0E8A16 "Plan approved, ready for the implementer"
+label in-progress        FBCA04 "The implementer is working on it"
+label to-refine          D93F0B "The implementer has a question, plan needs refining"
+label blocked            5319E7 "Automatic run failed (quota/error)"
+label pass               0E8A16 "Automatic review: mergeable"
+label warning            FBCA04 "Automatic review: fixes required"
+label fail               B60205 "Automatic review: serious problems"
+label needs-human-review 5319E7 "Cycle limit reached, human review needed"
+if [ -n "$existing_labels" ] && grep -qxE 'ready-to-implement|in-progress|to-refine|blocked|pass|warning|fail|needs-human-review' <<<"$existing_labels"; then
+  echo "WARNING: some flow labels already existed. If they mean something else here, rename patufet's"
+  echo "         with the label-* inputs and update the caller's if: conditions (docs/customization.md)."
+fi
 
 # --- secrets -----------------------------------------------------------------
 if gh secret list --json name --jq '.[].name' 2>/dev/null | grep -qE '^(CLAUDE_CODE_OAUTH_TOKEN|ANTHROPIC_API_KEY)$'; then

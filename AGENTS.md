@@ -27,7 +27,45 @@ Decide the two bootstrap values before running it:
   script (Docker Compose, `npm start`, embedded DB). When in doubt, omit it; it can be added
   later.
 
-## 2. Install
+## 2. Existing automation
+
+Inventory what is already there before installing; patufet adds workflows, labels and a
+branch convention that can collide with them.
+
+```bash
+ls .github/workflows/
+grep -lE 'anthropics/claude-code-action' .github/workflows/*.y*ml   # other Claude workflows
+gh label list --limit 1000 --json name --jq '.[].name'               # existing labels
+gh api "repos/{owner}/{repo}/rulesets" --jq '.[].name'               # branch rulesets, if any
+```
+
+Then, for each case that applies, do the following and mention it in your final report:
+
+- **A workflow already uses `anthropics/claude-code-action`** (the action's own `@claude`
+  or code-review examples). Both would answer the same events: two replies per mention, two
+  reviews per push, twice the cost. Ask the owner which to keep. If they keep theirs for
+  `@claude` only, delete `.github/workflows/patufet-mention.yml` after the bootstrap; if
+  theirs reviews pull requests, it must go, patufet's review job replaces it.
+- **One of the flow labels already exists** (`ready-to-implement`, `in-progress`,
+  `to-refine`, `blocked`, `pass`, `warning`, `fail`, `needs-human-review`) with another
+  meaning, e.g. project boards. The bootstrap leaves existing labels untouched, but the flow
+  reacts to those names: a `pass` put on a PR for any other reason starts the e2e stage.
+  Rename patufet's through the `label-*` inputs and update the caller's `if:` conditions
+  to match; the `/plan-issue` command hard-codes `ready-to-implement`, edit it too. See
+  [docs/customization.md](docs/customization.md).
+- **Another bot labels pull requests** (`actions/labeler`, release-drafter...). Check that
+  none of its labels is a flow label; otherwise rename as above.
+- **A ruleset or branch protection restricts branch names or who can push.** The
+  implementer pushes `agent/issue-<n>` with the Claude App's token. Change `branch-prefix`
+  to an allowed pattern, or the owner must add the App to the bypass list.
+- **CI skips pull requests from bots** (`if: github.actor != 'dependabot[bot]'` and the
+  like). patufet's PRs are opened by `claude[bot]`; if the tests would not run on them,
+  say so in the report and do not describe those jobs in `ci-check-names`.
+
+Files the bootstrap would create that already exist (`.github/patufet/*`,
+`.claude/commands/plan-issue.md`) are kept as they are; no action needed.
+
+## 3. Install
 
 ```bash
 bash <(curl -sSL https://raw.githubusercontent.com/jmformenti/patufet/v1/scripts/bootstrap.sh) \
@@ -38,7 +76,7 @@ It is idempotent and never overwrites an existing file. It copies the caller wor
 the prompt extension files and the `/plan-issue` command, creates the eight flow labels and
 checks for the secret. Read its output: the final "Next steps" block and any `WARNING`.
 
-## 3. Fill in what the bootstrap cannot infer
+## 4. Fill in what the bootstrap cannot infer
 
 `.github/workflows/patufet.yml` (the caller):
 
@@ -70,7 +108,7 @@ until it answers, seeds test data and appends `KEY=VALUE` lines to `$PATUFET_E2E
 Describe in `.github/patufet/e2e.md` what must always be exercised. Full contract:
 [docs/e2e.md](docs/e2e.md).
 
-## 4. Verify
+## 5. Verify
 
 ```bash
 grep -n TODO .github/workflows/patufet.yml                 # must print nothing
@@ -81,9 +119,9 @@ actionlint .github/workflows/patufet*.yml                   # if actionlint is i
 bash -n .github/patufet/*.sh                                # with --with-e2e
 ```
 
-A missing secret is a **human** step (section 6), not a failure of yours.
+A missing secret is a **human** step (section 7), not a failure of yours.
 
-## 5. Commit
+## 6. Commit
 
 Follow the repository's conventions (direct commit or PR). The workflows only become active
 once the files are on the default branch.
@@ -94,7 +132,7 @@ the `review` job with an explicit validation error. This is normal; merge that P
 after the usual CI is green. Every later PR is reviewed. The same happens on any future PR
 that edits `patufet.yml`.
 
-## 6. Hand over to the human
+## 7. Hand over to the human
 
 Report these, done or pending, with the exact commands:
 

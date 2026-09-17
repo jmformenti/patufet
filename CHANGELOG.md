@@ -17,6 +17,11 @@
 - Docs: new `AGENTS.md`, an adoption runbook for coding agents (preconditions, bootstrap,
   what to fill in, verification, and the steps only a human can do). Linked from the README
   quick start with a ready-to-paste prompt.
+- `bootstrap.sh` no longer overwrites labels that already exist (it used `--force`): they are
+  kept untouched with a warning, since they may mean something else in the repository. It also
+  warns when an existing workflow already uses `anthropics/claude-code-action`, which would run
+  alongside patufet. `AGENTS.md` gained an "Existing automation" section covering these and
+  the other collisions (labelling bots, branch rulesets, CI that skips bot PRs).
 
 ## v1.0.0 — 2026-09-05
 
