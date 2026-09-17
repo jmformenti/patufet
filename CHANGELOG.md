@@ -27,6 +27,8 @@
   on the owner's explicit request.
 - Docs: "Uninstall" section in the README and "Uninstalling" in `AGENTS.md` (in-flight work,
   files, labels, secret and App, and what patufet never touches).
+- Docs: README "TL;DR" with the three prompts (adopt with an agent, run one issue with
+  `/plan-issue`, uninstall with an agent).
 
 ## v1.0.0 — 2026-09-05
 

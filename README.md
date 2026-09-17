@@ -21,6 +21,51 @@ Everything runs on `anthropics/claude-code-action`; this repository adds the **s
 e2e stage** with Playwright, and the guards that make it safe and cheap enough to leave
 unattended. Consumer repositories hold ~80 lines of YAML and a few Markdown files.
 
+## TL;DR
+
+Three things to say to your coding agent (Claude Code, or anything that can run `gh`) from
+inside your repository. [AGENTS.md](AGENTS.md) is the runbook it follows; the steps only a
+human can do (install the [Claude GitHub App](https://github.com/apps/claude), set the
+token secret) end up listed in the PR it opens.
+
+**1. Adopt**
+
+```
+Adopt patufet in this repository: read
+https://raw.githubusercontent.com/jmformenti/patufet/v1/AGENTS.md and follow it.
+```
+
+Review and merge the PR, do the human steps it lists.
+
+**2. Run one issue** (from Claude Code, in your repository)
+
+```
+/plan-issue 42
+```
+
+Iterate on the plan until you approve it. The agent then labels the issue and the flow
+takes over: a PR on `agent/issue-42` appears, every push is reviewed and fixed until the
+label is `pass` (or `needs-human-review` after the cycle limit, which mentions your
+reviewer). With the e2e stage enabled, `pass` also runs the live test. Watch it with:
+
+```bash
+gh pr list --search "head:agent/issue-42" --json number,isDraft,labels,url
+```
+
+A draft PR and the issue labelled `to-refine` mean the implementer has a question: answer
+it in the issue and run `/plan-issue 42` again to update the plan; the implementer resumes
+from the draft. When the label is `pass` and CI is green, you merge.
+
+**3. Not convinced?**
+
+```
+Remove patufet from this repository: follow the "Uninstalling" section of
+https://raw.githubusercontent.com/jmformenti/patufet/v1/AGENTS.md
+```
+
+It opens a PR that removes the files and labels and tells you whether the secret and the
+App are still used by anything else. Manual steps: [Uninstall](#uninstall).
+
 ## Quick start
 
 Requirements: a GitHub repository, the [Claude GitHub App](https://github.com/apps/claude)
@@ -39,15 +84,6 @@ Then:
 2. Optionally write your project checklist in `.github/patufet/review.md` / `implement.md`.
 3. Commit and push.
 4. Open an issue, run `/plan-issue <n>` from Claude Code, approve the plan → the flow starts.
-
-Want a coding agent to do the adoption for you? Point it at
-[AGENTS.md](AGENTS.md), the same steps written as a runbook, with the parts only a human can
-do (App install, secret, first plan) called out:
-
-```
-Adopt patufet in this repository: read
-https://raw.githubusercontent.com/jmformenti/patufet/v1/AGENTS.md and follow it.
-```
 
 ## How a cycle goes
 
