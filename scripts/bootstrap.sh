@@ -63,7 +63,7 @@ fi
 existing=$(grep -lE 'anthropics/claude-code-action' .github/workflows/*.yml .github/workflows/*.yaml 2>/dev/null || true)
 if [ -n "$existing" ]; then
   echo "WARNING: these workflows already use anthropics/claude-code-action and will run alongside patufet:"
-  echo "$existing" | sed 's/^/         /'
+  while IFS= read -r f; do echo "         $f"; done <<<"$existing"
   echo "         Remove them, or delete .github/workflows/patufet-mention.yml if you only want their @claude handling."
 fi
 
