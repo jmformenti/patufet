@@ -121,20 +121,31 @@ bash -n .github/patufet/*.sh                                # with --with-e2e
 
 A missing secret is a **human** step (section 7), not a failure of yours.
 
-## 6. Commit
+## 6. Open a pull request
 
-Follow the repository's conventions (direct commit or PR). The workflows only become active
-once the files are on the default branch.
+Always a branch and a pull request, never a direct commit to the default branch, unless
+the owner explicitly asked for one. This change adds workflows with write access that are
+billed to the owner's key, a `test-command` you inferred and checklists you wrote: it is
+the one change a human must read, and there is no other review (workflows cannot be run
+locally, and see below). The workflows only become active once merged.
 
-Expected: **the PR that adds `patufet.yml` gets no automatic review.** The Claude action
-refuses to run from a workflow file that differs from the default branch's copy and fails
-the `review` job with an explicit validation error. This is normal; merge that PR by hand
-after the usual CI is green. Every later PR is reviewed. The same happens on any future PR
-that edits `patufet.yml`.
+The PR body is the hand-over report. Put in it:
+
+- what you inferred and from where: `test-command`, `ci-check-names`, the contents of the
+  `.github/patufet/*.md` files (or why you deleted them), the e2e hooks if any;
+- the conflicts found in section 2 and what you did about each;
+- the checks of section 5 that passed, and the ones you could not run;
+- the human steps of section 7, done or pending, with the exact commands.
+
+Expected: **this PR gets no automatic review.** The Claude action refuses to run from a
+workflow file that differs from the default branch's copy and fails the `review` job with
+an explicit validation error. This is normal; the owner merges by hand after the usual CI
+is green. Every later PR is reviewed. The same happens on any future PR that edits
+`patufet.yml`.
 
 ## 7. Hand over to the human
 
-Report these, done or pending, with the exact commands:
+These go in the PR body, done or pending, with the exact commands:
 
 1. **Install the Claude GitHub App** on the repository: https://github.com/apps/claude
 2. **Set the secret**, if `gh secret list` did not show one:

@@ -22,6 +22,9 @@
   warns when an existing workflow already uses `anthropics/claude-code-action`, which would run
   alongside patufet. `AGENTS.md` gained an "Existing automation" section covering these and
   the other collisions (labelling bots, branch rulesets, CI that skips bot PRs).
+- `AGENTS.md`: the adoption always ends in a pull request whose body is the hand-over report
+  (what was inferred, conflicts found, checks run, human steps pending); direct commits only
+  on the owner's explicit request.
 
 ## v1.0.0 — 2026-09-05
 
