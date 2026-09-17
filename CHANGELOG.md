@@ -14,6 +14,9 @@
   `max-review-cycles` 10 (was 3). The template caller now also sets `max-review-cycles: 10`.
 - Docs: the flow and state-machine diagrams in `README.md` and `docs/architecture.md` are now
   Mermaid instead of ASCII art.
+- Docs: new `AGENTS.md`, an adoption runbook for coding agents (preconditions, bootstrap,
+  what to fill in, verification, and the steps only a human can do). Linked from the README
+  quick start with a ready-to-paste prompt.
 
 ## v1.0.0 — 2026-09-05
 

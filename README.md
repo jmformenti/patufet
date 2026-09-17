@@ -40,6 +40,15 @@ Then:
 3. Commit and push.
 4. Open an issue, run `/plan-issue <n>` from Claude Code, approve the plan → the flow starts.
 
+Want a coding agent to do the adoption for you? Point it at
+[AGENTS.md](AGENTS.md), the same steps written as a runbook, with the parts only a human can
+do (App install, secret, first plan) called out:
+
+```
+Adopt patufet in this repository: read
+https://raw.githubusercontent.com/jmformenti/patufet/v1/AGENTS.md and follow it.
+```
+
 ## How a cycle goes
 
 | Step | Trigger | Who | Result |
@@ -80,6 +89,7 @@ prompts/             base prompts (English), rendered with {{placeholders}} + yo
 scripts/             helpers used by the workflows, and bootstrap.sh
 templates/           files copied into consumer repositories
 docs/                architecture, customization, e2e, security, troubleshooting, migration
+AGENTS.md            adoption runbook for coding agents
 ```
 
 Versioning: consumers reference `@v1` (moving major tag) or an exact `@v1.x.y`. Changes are
