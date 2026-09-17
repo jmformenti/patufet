@@ -25,6 +25,8 @@
 - `AGENTS.md`: the adoption always ends in a pull request whose body is the hand-over report
   (what was inferred, conflicts found, checks run, human steps pending); direct commits only
   on the owner's explicit request.
+- Docs: "Uninstall" section in the README and "Uninstalling" in `AGENTS.md` (in-flight work,
+  files, labels, secret and App, and what patufet never touches).
 
 ## v1.0.0 — 2026-09-05
 

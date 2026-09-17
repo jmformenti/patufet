@@ -81,6 +81,36 @@ Markdown files appended to the base prompts. See [docs/customization.md](docs/cu
 - **Workflows cannot be tested locally.** Adopt on a small issue first, then pin the version.
   See [docs/troubleshooting.md](docs/troubleshooting.md) for the failure modes already met.
 
+## Uninstall
+
+patufet leaves files, labels and (if you created them for it) a secret and the App.
+Nothing else: no repository setting or branch protection is touched, and the plan
+comments stay in the issues as plain text.
+
+1. Let in-flight work finish or close it: issues labelled `ready-to-implement` /
+   `in-progress`, PRs on `agent/issue-*` branches, drafts labelled `to-refine`. Runs already
+   started complete on their own.
+2. Remove the files. The checklists in `.github/patufet/*.md` are often project knowledge
+   worth moving to `CLAUDE.md` first.
+
+   ```bash
+   git rm -r .github/workflows/patufet.yml .github/workflows/patufet-mention.yml \
+             .github/patufet .claude/commands/plan-issue.md
+   ```
+
+3. Delete the labels the bootstrap created (only those; it never touched existing ones).
+   Deleting a label also removes it from closed issues and PRs.
+
+   ```bash
+   for l in ready-to-implement in-progress to-refine blocked pass warning fail needs-human-review; do
+     gh label delete "$l" --yes
+   done
+   ```
+
+4. Only if nothing else uses them: `gh secret delete CLAUDE_CODE_OAUTH_TOKEN` (or
+   `ANTHROPIC_API_KEY`) and uninstall the Claude GitHub App from the repository settings.
+   Keep both if you still use `@claude` through another workflow.
+
 ## Repository layout
 
 ```
