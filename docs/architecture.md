@@ -31,21 +31,33 @@ consumer's extension file, then passed to the action's `prompt` input.
 
 Labels drive everything. Names are inputs; the defaults are:
 
+```mermaid
+flowchart LR
+    plan(["/plan-issue"]) --> rti
+    subgraph issue
+        rti[ready-to-implement] --> ip[in-progress]
+        ip --> pr(["(PR)"])
+        ip --> tr["to-refine<br/>(question; draft PR)"]
+        ip --> bl["blocked<br/>(run failed / no PR)"]
+    end
 ```
-                     ┌──────────────────────────────────────────────────┐
-                     │ issue                                            │
-  /plan-issue ─────▶ │ ready-to-implement ──▶ in-progress ──┬─▶ (PR)    │
-                     │                                      ├─▶ to-refine  (question; draft PR)
-                     │                                      └─▶ blocked    (run failed / no PR)
-                     └──────────────────────────────────────────────────┘
-                     ┌──────────────────────────────────────────────────┐
-                     │ pull request                                     │
-  opened/push ─────▶ │ review ──▶ pass ──▶ e2e ──▶ ✅ mention reviewer   │
-                     │        ├─▶ warning ─┐        └─▶ fail ─┐         │
-                     │        └─▶ fail ────┴─▶ fix-review ◀───┘         │
-                     │                          │ push ──▶ review…      │
-                     │                          └─▶ needs-human-review  (cycle limit)
-                     └──────────────────────────────────────────────────┘
+
+```mermaid
+flowchart LR
+    trigger(["opened / push"]) --> review
+    subgraph pr["pull request"]
+        review --> pass
+        review --> warning
+        review --> fail
+        pass --> e2e
+        e2e --> ok["✅ mention reviewer"]
+        e2e --> e2efail[fail]
+        warning --> fix[fix-review]
+        fail --> fix
+        e2efail --> fix
+        fix -->|push| review
+        fix --> nhr["needs-human-review<br/>(cycle limit)"]
+    end
 ```
 
 Rules that make it work:

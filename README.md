@@ -4,16 +4,16 @@ Reusable GitHub Actions workflows that turn a GitHub issue into a merged-ready p
 with [Claude Code](https://code.claude.com), keeping a human in the loop at the two points
 that matter: **approving the plan** and **merging**.
 
-```
- issue ──/plan-issue──▶ plan approved ──label──▶ implement ──▶ PR
-                                                                 │
-                    ┌──────────── fix-review ◀── warning|fail ◀──┤ review
-                    │                                            │
-                    └────────────▶ (push) ──────────────────────▶┘
-                                                                 │ pass
-                                                          e2e (optional)
-                                                                 │ ✅
-                                                    human review + merge
+```mermaid
+flowchart LR
+    issue([issue]) -->|"/plan-issue"| plan[plan approved]
+    plan -->|label| implement
+    implement --> pr[PR]
+    pr --> review
+    review -->|"warning / fail"| fix[fix-review]
+    fix -->|push| pr
+    review -->|pass| e2e["e2e (optional)"]
+    e2e -->|✅| human[human review + merge]
 ```
 
 Everything runs on `anthropics/claude-code-action`; this repository adds the **state machine**

@@ -9,6 +9,8 @@
   variables, the caller file names (`patufet.yml`, `patufet-mention.yml`) and the concurrency
   groups. Existing plan comments with the old marker are not recognised any more: re-post the
   plan, or add the new marker line to the comment.
+- Docs: the flow and state-machine diagrams in `README.md` and `docs/architecture.md` are now
+  Mermaid instead of ASCII art.
 
 ## v1.0.0 — 2026-09-05
 
