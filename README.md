@@ -46,12 +46,8 @@ Review and merge the PR, do the human steps it lists.
 Iterate on the plan until you approve it. The agent then labels the issue and the flow
 takes over: a PR on `agent/issue-42` appears, every push is reviewed and fixed until the
 label is `pass` (or `needs-human-review` after the cycle limit, which mentions your
-reviewer). With the e2e stage enabled, `pass` also runs the live test. Check where it is
-(state, draft or not, labels) with:
-
-```bash
-gh pr view agent/issue-42
-```
+reviewer). With the e2e stage enabled, `pass` also runs the live test. Open the PR on
+GitHub: its label tells you where it is.
 
 A draft PR and the issue labelled `to-refine` mean the implementer has a question: answer
 it in the issue and run `/plan-issue 42` again to update the plan; the implementer resumes
