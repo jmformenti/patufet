@@ -21,16 +21,16 @@ check live:
 ## Output
 
 Post one single comment on the PR (`gh pr comment {{pr}}`) whose **first line is exactly**
-`<!-- patufet:e2e verdict=VERDICT -->` where VERDICT is `pass` or `fail`, followed by a
+`<!-- patufet:e2e run={{run}} verdict=VERDICT -->` where VERDICT is `pass` or `fail`, followed by a
 heading and a description of what you tested and the result. If something fails, explain
 precisely what you saw broken (steps to reproduce, error message, observed behaviour).
 
 If the verdict is `fail`, send the PR back to the fix stage by relabelling it in **two
 separate `gh pr edit` calls**, in this order:
-1. `gh pr edit {{pr}} --remove-label pass --remove-label warning --remove-label fail`
-2. `gh pr edit {{pr}} --add-label fail`
+1. `gh pr edit {{pr}} --remove-label "{{label_pass}}" --remove-label "{{label_warning}}" --remove-label "{{label_fail}}"`
+2. `gh pr edit {{pr}} --add-label "{{label_fail}}"`
 They must be independent calls so that GitHub emits a new `labeled` event even if the PR
-already had `fail` before. If the verdict is `pass`, do not touch any label.
+already had `{{label_fail}}` before. If the verdict is `pass`, do not touch any label.
 
 Finish by returning the structured result `{"verdict": "...", "summary": "..."}` with the same
 verdict as the marker.

@@ -11,5 +11,4 @@ pr="${2:?pr number is required}"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 gh api "repos/$repo/issues/$pr/comments" --paginate \
-  | jq -s -r -L "$here" 'include "trusted-comments";
-      add | [ .[] | trusted | select(.body | contains("<!-- patufet:review")) ] | length'
+  | jq -s -r -L "$here" 'include "trusted-comments"; add | reports("review") | length'

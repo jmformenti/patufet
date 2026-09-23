@@ -49,15 +49,19 @@ on:
         type: boolean
         default: true
       label-in-progress:
+        description: Label set on the issue while the implementer runs
         type: string
         default: in-progress
       label-ready:
+        description: Label that starts the implementer (removed when it starts)
         type: string
         default: ready-to-implement
       label-to-refine:
+        description: Label the implementer sets on the issue when it has a question
         type: string
         default: to-refine
       label-blocked:
+        description: Label set on the issue when the run fails or produces nothing
         type: string
         default: blocked
       legacy-plan-heading:
@@ -65,6 +69,7 @@ on:
         type: string
         default: ''
       timeout-minutes:
+        description: Job timeout
         type: number
         default: 45
     secrets:
@@ -149,17 +154,9 @@ jobs:
           EXTRA_FILE: ${{ inputs.extra-instructions-file }}
         run: |
           TPL_plan="$(cat "$RUNNER_TEMP/plan.md")"; export TPL_plan
-          if [ -n "$TEST_COMMAND" ]; then
-            TPL_test_command="$(printf '```bash\n%s\n```' "$TEST_COMMAND")"
-          else
-            TPL_test_command="(No test command configured: run whatever the repository documents as its test suite and build, e.g. in CLAUDE.md or README.)"
-          fi
-          export TPL_test_command
-          {
-            echo "text<<PATUFET_PROMPT_EOF"
-            "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/implement.md" "$EXTRA_FILE"
-            echo "PATUFET_PROMPT_EOF"
-          } >> "$GITHUB_OUTPUT"
+          TPL_test_command="$("$TPL_DIR/scripts/format-test-command.sh" "$TEST_COMMAND")"; export TPL_test_command
+          "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/implement.md" "$EXTRA_FILE" \
+            | "$TPL_DIR/scripts/github-output.sh" text
 
       # Without --allowedTools the action denies Bash by default and the agent
       # cannot run git or the tests
@@ -177,8 +174,9 @@ jobs:
             ${{ inputs.claude-args-extra }}
           prompt: ${{ steps.prompt.outputs.text }}
 
+      # The plan step already labels and explains its own failure
       - name: Mark the issue as blocked if the run failed
-        if: failure()
+        if: failure() && steps.plan.outcome != 'failure'
         env:
           LABEL_BLOCKED: ${{ inputs.label-blocked }}
         run: |
@@ -186,13 +184,14 @@ jobs:
           gh issue comment "$ISSUE_NUMBER" --body "⚠️ patufet: the automatic implementation run failed. See ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       # The action can finish green without having done anything (e.g. tool
-      # denials): if there is no PR and the issue is not to-refine, block it
+      # denials): if there is no open PR and the issue is not to-refine, block it
       - name: Check that a PR exists (or the issue was marked to-refine)
         env:
           LABEL_BLOCKED: ${{ inputs.label-blocked }}
           LABEL_TO_REFINE: ${{ inputs.label-to-refine }}
         run: |
-          prs=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state all --json number --jq 'length')
+          prs=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq 'length')
+          # shellcheck disable=SC2016  # $l is a jq variable
           refine=$(gh issue view "$ISSUE_NUMBER" --json labels | jq -r --arg l "$LABEL_TO_REFINE" '[.labels[].name] | contains([$l])')
           if [ "$prs" -eq 0 ] && [ "$refine" != "true" ]; then
             gh issue edit "$ISSUE_NUMBER" --add-label "$LABEL_BLOCKED"
@@ -205,3 +204,9 @@ jobs:
         env:
           LABEL_IN_PROGRESS: ${{ inputs.label-in-progress }}
         run: gh issue edit "$ISSUE_NUMBER" --remove-label "$LABEL_IN_PROGRESS" || true
+
+      - name: Summary
+        if: always() && env.TPL_DIR != ''
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: '"$TPL_DIR/scripts/run-summary.sh" implement "$EXECUTION_FILE" "Issue: #$ISSUE_NUMBER" "Branch: $BRANCH"'

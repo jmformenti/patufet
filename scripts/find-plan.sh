@@ -17,15 +17,11 @@ repo="${1:?usage: find-plan.sh <owner/repo> <issue-number> [<legacy-heading>]}"
 issue="${2:?issue number is required}"
 legacy="${3:-}"
 marker="<!-- patufet:plan -->"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# shellcheck disable=SC2016  # $marker/$legacy are jq variables
 plan=$(gh api "repos/$repo/issues/$issue/comments" --paginate \
-  | jq -s -r --arg marker "$marker" --arg legacy "$legacy" '
-    add
-    | [ .[]
-        | select(.author_association | IN("OWNER", "MEMBER", "COLLABORATOR"))
-        | select((.body | contains($marker)) or ($legacy != "" and (.body | contains($legacy))))
-      ] | last | .body // empty')
+  | jq -s -r -L "$here" --arg marker "$marker" --arg legacy "$legacy" \
+      'include "trusted-comments"; add | latest_plan($marker; $legacy)')
 
 if [ -z "$plan" ]; then
   echo "find-plan: issue #$issue has no plan comment ($marker) by a trusted author" >&2
