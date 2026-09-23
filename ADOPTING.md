@@ -50,9 +50,9 @@ Then, for each case that applies, do the following and mention it in your final 
   `to-refine`, `blocked`, `pass`, `warning`, `fail`, `needs-human-review`) with another
   meaning, e.g. project boards. The bootstrap leaves existing labels untouched, but the flow
   reacts to those names: a `pass` put on a PR for any other reason starts the e2e stage.
-  Rename patufet's through the `label-*` inputs and update the caller's `if:` conditions
-  to match; the `/plan-issue` command hard-codes `ready-to-implement`, edit it too. See
-  [docs/customization.md](docs/customization.md).
+  Rename patufet's through the `label-*` inputs (the prompts follow them) and update the
+  caller's `if:` conditions to match; `/plan-issue` reads the name of the ready label from
+  the caller. See [docs/customization.md](docs/customization.md#renaming-the-labels).
 - **Another bot labels pull requests** (`actions/labeler`, release-drafter...). Check that
   none of its labels is a flow label; otherwise rename as above.
 - **A ruleset or branch protection restricts branch names or who can push.** The
@@ -72,7 +72,7 @@ bash <(curl -sSL https://raw.githubusercontent.com/jmformenti/patufet/v1/scripts
   --reviewer <login> --language <lang> [--with-e2e]
 ```
 
-It is idempotent and never overwrites an existing file. It copies the caller workflows,
+It is idempotent and never modifies an existing file or label. It copies the caller workflows,
 the prompt extension files and the `/plan-issue` command, creates the eight flow labels and
 checks for the secret. Read its output: the final "Next steps" block and any `WARNING`.
 
@@ -80,11 +80,11 @@ checks for the secret. Read its output: the final "Next steps" block and any `WA
 
 `.github/workflows/patufet.yml` (the caller):
 
-- `test-command` appears **twice** (`implement` and `fix-review` jobs) and must be the same
-  in both. Replace the `TODO` with the shell that runs the project's tests and build, as CI
-  runs them (`package.json` scripts, `Makefile`, `pom.xml`, existing workflows under
-  `.github/workflows/`). Multi-line is fine. Leave it empty only if there is no way to
-  test the project.
+- `test-command` is written once, in the `implement` job; the `fix-review` job reuses it
+  through the YAML alias `*test-command`. Replace the `TODO` with the shell that runs the
+  project's tests and build, as CI runs them (`package.json` scripts, `Makefile`,
+  `pom.xml`, existing workflows under `.github/workflows/`). Multi-line is fine. Leave it
+  empty only if there is no way to test the project.
 - `ci-check-names` (`review` job): a short human description of the CI jobs that already
   test the PR, e.g. `"CI / test (unit + build)"`. It is prose, not job IDs. Leave `""` if
   the repository has no CI on pull requests.
@@ -160,30 +160,9 @@ These go in the PR body, done or pending, with the exact commands:
 
 ## Uninstalling
 
-If the owner asked you to remove patufet instead, do this, again as a pull request whose
-body lists what you removed and what you left and why.
-
-1. **Check for in-flight work** and stop if there is any, unless the owner said to close
-   it: `gh issue list --label ready-to-implement,in-progress,to-refine`, and
-   `gh pr list --search "head:agent/issue-"`. Runs already started complete on their own.
-2. **Keep the project knowledge.** Read `.github/patufet/implement.md`, `review.md` and
-   `e2e.md`: anything that is still true about the project (test anchors, review rules,
-   paths to always check) moves to `CLAUDE.md` or the README before the files go.
-3. **Remove the files**: `.github/workflows/patufet.yml`, `.github/workflows/patufet-mention.yml`,
-   the `.github/patufet/` directory and `.claude/commands/plan-issue.md`. If the caller
-   uses renamed labels (`label-*` inputs), note their names for the next step.
-4. **Delete the flow labels** with `gh label delete <name> --yes`, but only those created
-   for patufet: if the owner's history or the section-2 inventory shows a label existed
-   before, or is used by anything else, leave it. Deleting a label removes it from closed
-   issues and PRs too; say so in the PR body.
-5. **Secret and App are human decisions.** Report whether any remaining workflow still
-   uses `anthropics/claude-code-action` (`grep -l` as in section 2). If none does, the
-   owner may run `gh secret delete CLAUDE_CODE_OAUTH_TOKEN` (or `ANTHROPIC_API_KEY`) and
-   uninstall the Claude GitHub App from the repository settings. Never delete the secret
-   yourself.
-
-Nothing else to undo: patufet changes no repository setting, and the `<!-- patufet:plan -->`
-comments stay in the issues as plain text.
+If the owner asked you to remove patufet instead, follow
+[docs/uninstall.md](docs/uninstall.md), again as a pull request whose body lists what you
+removed, what you left and why.
 
 ## Reference
 

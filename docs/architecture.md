@@ -10,8 +10,11 @@
 | `.github/workflows/e2e.yml` | reusable workflow | start the app via hooks, test live with Playwright MCP |
 | `.github/workflows/mention.yml` | reusable workflow | ad-hoc `@claude` interactions |
 | `prompts/*.md` | data | base prompts, rendered by `scripts/render-prompt.sh` |
-| `scripts/*.sh`, `scripts/*.jq` | helpers | plan/report extraction with trust filter, cycle count, labelling |
+| `scripts/*.sh`, `scripts/trusted-comments.jq` | helpers | context gathering, plan/report/verdict extraction with trust filter, cycle count, labelling, job summary |
 | `templates/` | data | caller workflows, prompt extensions, e2e hooks, `/plan-issue` command |
+| `tests/` | tests | offline tests of the scripts and the bootstrap, run by `self-check.yml` |
+
+Why it is built this way: [decisions.md](decisions.md).
 
 The consumer repository owns the **triggers** (`on:` + `if:` in the caller) and the
 **project knowledge** (`with:` inputs, `.github/patufet/*`). Everything else — prompts,
@@ -71,7 +74,9 @@ Rules that make it work:
   created with `GITHUB_TOKEN` never trigger other workflows. A deterministic step then
   compares the label with Claude's **structured output** (`--json-schema`) and repairs the
   label with `GITHUB_TOKEN` if they disagree — flagging that the next stage must be started
-  by hand in that case. No second model run is needed.
+  by hand in that case. No second model run is needed. When there is no structured output,
+  only the marker of the comment posted by *this* run counts (`cycle=N` / `run=ID`), never
+  an earlier one (`scripts/read-verdict.sh`).
 - The review cycle counter is the number of trusted comments carrying
   `<!-- patufet:review`. `fix-review` refuses to run once it reaches `max-review-cycles`
   and labels `needs-human-review` instead.
@@ -88,7 +93,7 @@ the human text:
 |---|---|---|
 | `<!-- patufet:plan -->` | you (`/plan-issue`) | implement, review, e2e (`scripts/find-plan.sh`) |
 | `<!-- patufet:review cycle=N verdict=V -->` | reviewer | review (fallback verdict), fix-review, cycle counter |
-| `<!-- patufet:e2e verdict=V -->` | e2e tester | e2e (fallback verdict) |
+| `<!-- patufet:e2e run=ID.ATTEMPT verdict=V -->` | e2e tester | e2e (fallback verdict) |
 
 Only comments by `OWNER` / `MEMBER` / `COLLABORATOR` authors or by the `claude[bot]` /
 `github-actions[bot]` bots are considered (see [security.md](security.md)).
@@ -118,13 +123,21 @@ Levers: `max-review-cycles`, `max-turns`, `model` (e.g. a cheaper model for revi
 issues small (the plan gate is the real cost control), and not enabling e2e until the rest is
 stable. There is no hard budget per run in the action; `max-turns` is the only cap.
 
+## Observability
+
+Every job writes a summary (the run page on GitHub): outcome, turns, duration and the cost
+Claude Code reports for the run, plus the verdict and cycle. With an OAuth token the cost is
+what the run would cost on the API, not what the subscription is charged.
+
 ## Testing
 
-The workflows cannot run locally (`act` cannot run the Claude action). What is verifiable:
+The workflows cannot run locally (`act` cannot run the Claude action). What is verifiable,
+all run by `self-check.yml`:
 
 - `actionlint` on the reusable workflows and on the caller templates, `shellcheck` on the
-  scripts — done by `self-check.yml`.
-- The jq trust filter and the extraction scripts can be exercised locally against a real
-  repository with `gh` authenticated (they are read-only).
-- Real behaviour: adopt on a repository with a small issue and watch one full cycle (see
-  [migration.md](migration.md)).
+  scripts.
+- `tests/run.sh`: the scripts (trust filter, verdict, plan, linked issue, labels, prompt
+  rendering), the bootstrap's idempotence, and the consistency of prompts, workflows and
+  docs, offline with a stubbed `gh`.
+- Real behaviour: a full cycle on a sandbox repository (see
+  [CONTRIBUTING.md](../CONTRIBUTING.md#checking-a-change)).

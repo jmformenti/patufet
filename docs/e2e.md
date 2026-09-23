@@ -12,7 +12,8 @@ the flow ends at the code review `pass` and the reviewer merges.
 
 ### `e2e-up.sh` (input `up-script`, default `.github/patufet/e2e-up.sh`)
 
-- Runs with `bash`, from the repository root, PR branch checked out.
+- Runs with `bash`, from the repository root, with the PR head commit that got the `pass`
+  label checked out (not a later push).
 - Must **start** the app, **wait** until it is usable and **seed** the test data.
 - Must **exit non-zero** if the app is not usable — the job fails without posting a verdict.
 - Must **append `KEY=VALUE` lines** to the file `$PATUFET_E2E_ENV`. They are rendered
@@ -53,10 +54,13 @@ curl -sf -X POST http://localhost:8080/api/auth/register/runner -H 'Content-Type
 
 ## Verdict handling
 
-The tester posts one comment whose first line is `<!-- patufet:e2e verdict=pass|fail -->`
-and returns the same verdict as structured output. A deterministic step then:
+The tester posts one comment whose first line is
+`<!-- patufet:e2e run=<run_id>.<attempt> verdict=pass|fail -->` and returns the same verdict
+as structured output. A deterministic step reads the structured verdict (or, failing that,
+the marker of *this* run's comment by a trusted author) and then:
 
-- `fail` → relabels the PR `fail` with the app token, which re-triggers `fix-review`;
+- `fail` → Claude has relabelled the PR `fail` with the App token, which re-triggers
+  `fix-review` (the step repairs the label if Claude did not);
 - `pass` → posts "ready for human review" mentioning `human-reviewer`.
 
 If the Claude step fails or yields no verdict, the job fails and a warning comment is posted;
@@ -71,9 +75,13 @@ labels are left untouched.
 | `extra-instructions-file` | `.github/patufet/e2e.md` |
 | `human-reviewer` | `''` |
 | `install-playwright` | `true` (set false if your image already has Chromium) |
-| `allowed-tools` | `mcp__playwright__*,Bash(gh pr *),Bash(gh issue *)` |
+| `playwright-mcp-version` | `0.0.82` — `@playwright/mcp` version; the browser installed is the one of the Playwright version it depends on |
+| `allowed-tools` | `mcp__playwright__*,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh pr edit:*),Bash(gh issue view:*)` — no `gh pr merge`: the tester reads pages rendered by the PR's code |
+| `branch-prefix`, `language`, `model`, `allowed-bots`, `claude-args-extra`, `show-full-output`, `legacy-plan-heading` | as in [customization.md](customization.md) |
+| `label-pass`, `label-warning`, `label-fail` | `pass`, `warning`, `fail` |
 | `max-turns` | `200` |
 | `timeout-minutes` | `30` |
 
 The Playwright install is wrapped in `timeout 300` × 3 attempts: on a real run its inner
 `apt-get` hung for 27 minutes against a flaky runner mirror and ate the whole job timeout.
+Both the MCP server and the browser are pinned: `@latest` changed under running flows.

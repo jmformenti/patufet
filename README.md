@@ -19,12 +19,13 @@ flowchart LR
 Everything runs on `anthropics/claude-code-action`; this repository adds the **state machine**
 (labels), the **review → fix loop** with a cycle limit, the **plan gate**, an optional **live
 e2e stage** with Playwright, and the guards that make it safe and cheap enough to leave
-unattended. Consumer repositories hold ~80 lines of YAML and a few Markdown files.
+unattended. Consumer repositories hold two short caller workflows (~120 lines of YAML,
+mostly comments and permissions) and a few Markdown files.
 
 ## TL;DR
 
 Three things to say to your coding agent (Claude Code, or anything that can run `gh`) from
-inside your repository. [AGENTS.md](AGENTS.md) is the runbook it follows; the steps only a
+inside your repository. [ADOPTING.md](ADOPTING.md) is the runbook it follows; the steps only a
 human can do (install the [Claude GitHub App](https://github.com/apps/claude), set the
 token secret) end up listed in the PR it opens.
 
@@ -32,7 +33,7 @@ token secret) end up listed in the PR it opens.
 
 ```
 Adopt patufet in this repository: read
-https://raw.githubusercontent.com/jmformenti/patufet/v1/AGENTS.md and follow it.
+https://raw.githubusercontent.com/jmformenti/patufet/v1/ADOPTING.md and follow it.
 ```
 
 Review and merge the PR, do the human steps it lists.
@@ -56,12 +57,12 @@ from the draft. When the label is `pass` and CI is green, you merge.
 **3. Not convinced?**
 
 ```
-Remove patufet from this repository: follow the "Uninstalling" section of
-https://raw.githubusercontent.com/jmformenti/patufet/v1/AGENTS.md
+Remove patufet from this repository: follow
+https://raw.githubusercontent.com/jmformenti/patufet/v1/docs/uninstall.md
 ```
 
 It opens a PR that removes the files and labels and tells you whether the secret and the
-App are still used by anything else. Manual steps: [Uninstall](#uninstall).
+App are still used by anything else. Manual steps: [docs/uninstall.md](docs/uninstall.md).
 
 The rest of this README is the manual path and the reference.
 
@@ -73,13 +74,14 @@ secret, and the `gh` CLI locally.
 
 ```bash
 cd your-repo
-bash <(curl -sSL https://raw.githubusercontent.com/jmformenti/patufet/main/scripts/bootstrap.sh) \
+bash <(curl -sSL https://raw.githubusercontent.com/jmformenti/patufet/v1/scripts/bootstrap.sh) \
   --reviewer your-github-login --language en          # add --with-e2e if the app can run on a runner
 ```
 
 Then:
 
-1. Fill in `test-command` (and `ci-check-names`) in `.github/workflows/patufet.yml`.
+1. Fill in `test-command` (once, `fix-review` reuses it) and `ci-check-names` in
+   `.github/workflows/patufet.yml`.
 2. Optionally write your project checklist in `.github/patufet/review.md` / `implement.md`.
 3. Commit and push.
 4. Open an issue, run `/plan-issue <n>` from Claude Code, approve the plan → the flow starts.
@@ -118,33 +120,9 @@ Markdown files appended to the base prompts. See [docs/customization.md](docs/cu
 
 ## Uninstall
 
-patufet leaves files, labels and (if you created them for it) a secret and the App.
-Nothing else: no repository setting or branch protection is touched, and the plan
-comments stay in the issues as plain text.
-
-1. Let in-flight work finish or close it: issues labelled `ready-to-implement` /
-   `in-progress`, PRs on `agent/issue-*` branches, drafts labelled `to-refine`. Runs already
-   started complete on their own.
-2. Remove the files. The checklists in `.github/patufet/*.md` are often project knowledge
-   worth moving to `CLAUDE.md` first.
-
-   ```bash
-   git rm -r .github/workflows/patufet.yml .github/workflows/patufet-mention.yml \
-             .github/patufet .claude/commands/plan-issue.md
-   ```
-
-3. Delete the labels the bootstrap created (only those; it never touched existing ones).
-   Deleting a label also removes it from closed issues and PRs.
-
-   ```bash
-   for l in ready-to-implement in-progress to-refine blocked pass warning fail needs-human-review; do
-     gh label delete "$l" --yes
-   done
-   ```
-
-4. Only if nothing else uses them: `gh secret delete CLAUDE_CODE_OAUTH_TOKEN` (or
-   `ANTHROPIC_API_KEY`) and uninstall the Claude GitHub App from the repository settings.
-   Keep both if you still use `@claude` through another workflow.
+patufet leaves files, labels and (if you created them for it) a secret and the App; nothing
+else. [docs/uninstall.md](docs/uninstall.md) has the steps, for you or your agent: in-flight
+work, files, only the labels created for patufet, and the secret and App.
 
 ## Repository layout
 
@@ -153,12 +131,17 @@ comments stay in the issues as plain text.
 prompts/             base prompts (English), rendered with {{placeholders}} + your extension files
 scripts/             helpers used by the workflows, and bootstrap.sh
 templates/           files copied into consumer repositories
-docs/                architecture, customization, e2e, security, troubleshooting, migration
-AGENTS.md            adoption runbook for coding agents
+tests/               offline tests of the scripts and the bootstrap (tests/run.sh)
+docs/                architecture, decisions, customization, e2e, security, troubleshooting,
+                     migration, uninstall
+ADOPTING.md          adoption runbook for coding agents
+AGENTS.md            instructions for agents working on patufet itself
+CONTRIBUTING.md      how to test, release and roll back
 ```
 
-Versioning: consumers reference `@v1` (moving major tag) or an exact `@v1.x.y`. Changes are
-listed in [CHANGELOG.md](CHANGELOG.md).
+Versioning: consumers reference `@v1` (moving major tag) or an exact `@v1.x.y` (from
+`v1.1.0`; `v1.0.0` predates the rename to patufet). Changes are listed in
+[CHANGELOG.md](CHANGELOG.md), the release policy in [CONTRIBUTING.md](CONTRIBUTING.md#releasing).
 
 ## Trademarks
 
