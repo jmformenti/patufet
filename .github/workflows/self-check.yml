@@ -1,12 +1,16 @@
-# Lints this repository: the reusable workflows, the caller templates and the
-# shell scripts. Workflows cannot be executed here (they need a consumer repo
-# and a Claude token), see docs/architecture.md → "Testing".
+# Lints and tests this repository: the reusable workflows, the caller
+# templates, the shell scripts and their behaviour against fixtures. The
+# workflows themselves cannot be executed here (they need a consumer repo and
+# a Claude token), see CONTRIBUTING.md.
 name: Self-check
 
 on:
   push:
     branches: [main]
   pull_request:
+
+env:
+  ACTIONLINT_VERSION: 1.7.12
 
 jobs:
   lint:
@@ -19,16 +23,27 @@ jobs:
           persist-credentials: false
 
       - name: Install actionlint
-        run: bash <(curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+        run: bash <(curl -sSL "https://raw.githubusercontent.com/rhysd/actionlint/v${ACTIONLINT_VERSION}/scripts/download-actionlint.bash") "$ACTIONLINT_VERSION"
 
       # job.workflow_repository / job.workflow_sha are documented GitHub context
-      # properties that actionlint does not know yet; SC2016 fires on jq
-      # variables ($x) inside single quotes, which is intended
+      # properties that actionlint does not know yet
       - name: actionlint (reusable workflows)
-        run: ./actionlint -color -ignore 'property "workflow_(repository|sha)" is not defined in object type' -ignore 'SC2016'
+        run: ./actionlint -color -ignore 'property "workflow_(repository|sha)" is not defined in object type'
 
       - name: actionlint (caller templates)
         run: ./actionlint -color templates/.github/workflows/*.yml
 
       - name: shellcheck
-        run: shellcheck scripts/*.sh templates/.github/patufet/*.sh
+        run: shellcheck scripts/*.sh templates/.github/patufet/*.sh tests/*.sh tests/stubs/gh
+
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Offline tests (fixtures, stubbed gh)
+        run: tests/run.sh

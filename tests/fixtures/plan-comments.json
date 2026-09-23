@@ -1,0 +1,12 @@
+[
+  {"author_association": "OWNER", "user": {"type": "User", "login": "ana"},
+   "body": "<!-- patufet:plan -->\n## Plan v1"},
+  {"author_association": "COLLABORATOR", "user": {"type": "User", "login": "bob"},
+   "body": "<!-- patufet:plan -->\n## Plan v2"},
+  {"author_association": "NONE", "user": {"type": "User", "login": "eve"},
+   "body": "<!-- patufet:plan -->\n## Plan by a stranger"},
+  {"author_association": "NONE", "user": {"type": "Bot", "login": "claude[bot]"},
+   "body": "<!-- patufet:plan -->\n## Plan by a bot"},
+  {"author_association": "MEMBER", "user": {"type": "User", "login": "carla"},
+   "body": "## Pla d'implementació\nold style plan"}
+]
