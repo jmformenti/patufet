@@ -41,7 +41,7 @@ Remove all verdict labels, then add one, in separate calls (prompts and
 
 **Context.** Parsing free text is fragile and language-dependent; a run can end (max-turns)
 after posting its report. **Decision.** `--json-schema` gives the verdict; failing that, the
-`<!-- patufet:review cycle=N ... -->` / `<!-- patufet:e2e run=ID ... -->` marker of *this*
+`<!-- patufet:review cycle=N ... -->` / `<!-- patufet:e2e run=ID.ATTEMPT ... -->` marker of *this*
 run's comment (`scripts/read-verdict.sh`). A report of an earlier run never counts, or a
 failed run would inherit the previous verdict and stall the flow silently.
 
@@ -58,8 +58,10 @@ the model not to launch subagents.
 (claude-code-action `src/github/token.ts`). **Decision.** The reviewer and the e2e tester
 only get `gh pr view|diff|comment|edit` and `gh issue view` (no `gh api`, no `gh pr merge`);
 the implementer and fixer get `Bash` because they must run tests and git. **Consequences.**
-Widening `allowed-tools` on review / e2e gives write access to an agent that reads untrusted
-content (the diff, the running app).
+`gh pr edit` cannot be limited to labels by prefix: those agents can still change the PR's
+title, body, base branch and reviewers, not merge or push. Widening `allowed-tools` on
+review / e2e gives write access to an agent that reads untrusted content (the diff, the
+running app).
 
 ## 8. Only trusted text reaches an agent that can write
 

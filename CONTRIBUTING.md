@@ -42,8 +42,9 @@ To add a test, add a fixture (a real API response, trimmed) and a few `eq` / `ha
 1. Move `## Unreleased` in `CHANGELOG.md` to `## v1.x.y — <date>`; merge.
 2. Tag the merge commit and move the major tag:
    ```bash
-   git tag v1.x.y && git tag -f v1 v1.x.y
-   git push origin v1.x.y && git push -f origin v1
+   version=v1.2.0   # the new release
+   git tag "$version" && git tag -f v1 "$version"
+   git push origin "$version" && git push -f origin v1
    ```
 3. Consumers on `@v1` get it on their next run; tell the ones pinned to `@v1.x.y`.
 
@@ -58,7 +59,8 @@ Point the major tag back at the previous release; consumers on `@v1` pick it up 
 run, nothing to change on their side:
 
 ```bash
-git tag -f v1 v1.x.(y-1) && git push -f origin v1
+previous=v1.1.0   # the last good release
+git tag -f v1 "$previous" && git push -f origin v1
 ```
 
 ## Pending ideas

@@ -213,7 +213,8 @@ jobs:
       # On failure Claude itself relabels the PR `fail` inside the action (app
       # token → fix-review triggers; the token is revoked when the action ends).
       # This step verifies/repairs the label and, on success, asks the human
-      # reviewer to merge. Not on cancellation: a superseded run must not label.
+      # reviewer to merge — only if the PR is still at the tested commit.
+      # Not on cancellation: a superseded run must not label.
       - name: Apply the e2e verdict
         id: verdict
         if: ${{ !cancelled() && steps.claude.conclusion != 'skipped' }}
@@ -225,6 +226,7 @@ jobs:
           LABEL_WARNING: ${{ inputs.label-warning }}
           LABEL_FAIL: ${{ inputs.label-fail }}
           REVIEWER: ${{ inputs.human-reviewer }}
+          TESTED_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           if [ -z "$CLAUDE_EXECUTION_FILE" ]; then
             echo "::error::The Claude action did not run (see its step log). No verdict."
@@ -245,9 +247,14 @@ jobs:
               gh pr comment "$PR_NUMBER" --body "⚠️ patufet: the e2e tester reported a failure but did not relabel the PR; the label was repaired by the workflow, which cannot trigger the next stage. Remove and re-add the \`$LABEL_FAIL\` label by hand to continue."
             fi
           else
-            mention=""
-            [ -n "$REVIEWER" ] && mention=" @$REVIEWER"
-            gh pr comment "$PR_NUMBER" --body "✅ patufet: code review and live e2e test passed. Ready for human review and merge.$mention"
+            head=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
+            if [ "$head" != "$TESTED_SHA" ]; then
+              gh pr comment "$PR_NUMBER" --body "ℹ️ patufet: the live e2e test passed on ${TESTED_SHA:0:7}, but the PR has moved on to ${head:0:7}; the new commits go through review (and e2e) again."
+            else
+              mention=""
+              [ -n "$REVIEWER" ] && mention=" @$REVIEWER"
+              gh pr comment "$PR_NUMBER" --body "✅ patufet: code review and live e2e test passed. Ready for human review and merge.$mention"
+            fi
           fi
 
       - name: Stop the application (e2e-down hook)

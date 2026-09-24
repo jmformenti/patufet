@@ -75,7 +75,7 @@ Rules that make it work:
   compares the label with Claude's **structured output** (`--json-schema`) and repairs the
   label with `GITHUB_TOKEN` if they disagree — flagging that the next stage must be started
   by hand in that case. No second model run is needed. When there is no structured output,
-  only the marker of the comment posted by *this* run counts (`cycle=N` / `run=ID`), never
+  only the marker of the comment posted by *this* run counts (`cycle=N` / `run=ID.ATTEMPT`), never
   an earlier one (`scripts/read-verdict.sh`).
 - The review cycle counter is the number of trusted comments carrying
   `<!-- patufet:review`. `fix-review` refuses to run once it reaches `max-review-cycles`

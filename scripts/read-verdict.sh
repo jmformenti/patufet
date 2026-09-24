@@ -32,7 +32,8 @@ if [ -z "$verdict" ]; then
         'include "trusted-comments"; add | verdict($kind; $key)')
 fi
 
-if [ -n "$verdict" ] && ! grep -qE "$allowed" <<< "$verdict"; then
+# The whole value must match: a multi-line "pass\ninvalid" is rejected
+if [ -n "$verdict" ] && ! [[ "$verdict" =~ $allowed ]]; then
   echo "read-verdict: ignoring invalid $kind verdict '$verdict'" >&2
   verdict=""
 fi

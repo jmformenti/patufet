@@ -22,14 +22,19 @@ Fixes and changes from a technical review of the repository:
   `run=<run_id>.<attempt>` and whose fallback now ignores untrusted comments.
 - Fix: `bootstrap.sh` no longer edits an existing caller (re-running it without `--with-e2e`
   deleted the e2e job). It prints its usage when run through `bash <(curl …)`, rejects
-  options without a value and escapes `--language` free text.
+  options without a value (or with another option as value) and writes `--language` /
+  `--reviewer` as YAML strings, so free text like `Catalan: Valencian` stays valid.
 - Fix: review no longer recreates the verdict labels with `--force` (it overwrote their
   colour on every run) and creates the missing ones *before* Claude needs them.
 - Fix: fix-review gets only the inline comments that are not outdated, and pushes once at
   the end instead of after each part (each push started a review and could spend cycles).
 - Fix: implement no longer posts two comments when there is no plan, and only an open PR
-  counts as the run's result. e2e tests the commit that got `pass`, not a later push. The
-  mention caller no longer re-runs on `issues: assigned`.
+  counts as the run's result. e2e tests the commit that got `pass`, not a later push, and
+  only announces "ready for merge" if the PR is still at that commit. The mention caller no
+  longer re-runs on `issues: assigned`.
+- Fix: the fallback verdict requires the exact marker and value (`patufet:review-notes` or
+  `verdict=passed` count neither as a verdict nor as a cycle). Review fails visibly if a
+  verdict label cannot be created.
 - Fix: a `{{ x }}` in a consumer's extension file (Vue, Handlebars) is kept verbatim;
   `Closes: #N`, extra spaces and `owner/repo#N` (same repository) now link a PR to its issue.
 - Workflow logic moved to scripts (`gather-context.sh`, `plan-section.sh`, `read-verdict.sh`,

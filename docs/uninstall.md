@@ -38,11 +38,12 @@ The bootstrap never modified a label that already existed, so some of the eight 
 belong to the repository (a `blocked` or `pass` used by a project board, for instance).
 Deleting a label also removes it from every issue and PR, closed ones included.
 
-List them first and delete only the ones created for patufet — the bootstrap output of the
-adoption PR, or the label's description (`gh label list`), tells you which:
+Delete only the labels created for patufet. The adoption PR records the bootstrap's
+`create` / `keep` line for each label; if that record is missing, ask the owner. A matching
+description is no proof: a label that existed before may have the same one.
 
 ```bash
-gh label list --json name,description \
+gh label list --limit 1000 --json name,description \
   --jq '.[] | select(.name | IN("ready-to-implement","in-progress","to-refine","blocked","pass","warning","fail","needs-human-review"))'
 gh label delete <name> --yes      # one by one, for the labels created for patufet
 ```

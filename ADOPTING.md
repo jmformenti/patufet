@@ -134,6 +134,8 @@ The PR body is the hand-over report. Put in it:
 - what you inferred and from where: `test-command`, `ci-check-names`, the contents of the
   `.github/patufet/*.md` files (or why you deleted them), the e2e hooks if any;
 - the conflicts found in section 2 and what you did about each;
+- the bootstrap's label lines (`create <label>` / `keep <label>`): an uninstall deletes
+  only the labels patufet created;
 - the checks of section 5 that passed, and the ones you could not run;
 - the human steps of section 7, done or pending, with the exact commands.
 

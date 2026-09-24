@@ -38,11 +38,16 @@ USAGE
   exit "${1:-0}"
 }
 
+# An option's value must not be missing or be the next option (--reviewer --with-e2e)
+need_value() {
+  if [ $# -lt 2 ] || [ -z "$2" ] || [[ "$2" == --* ]]; then echo "$1 needs a value" >&2; usage 1 >&2; fi
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
-    --reviewer) reviewer="${2:?--reviewer needs a value}"; shift 2 ;;
-    --language) language="${2:?--language needs a value}"; shift 2 ;;
-    --ref) ref="${2:?--ref needs a value}"; shift 2 ;;
+    --reviewer) need_value "$@"; reviewer="$2"; shift 2 ;;
+    --language) need_value "$@"; language="$2"; shift 2 ;;
+    --ref) need_value "$@"; ref="$2"; shift 2 ;;
     --with-e2e) with_e2e=true; shift ;;
     --dry-run) dry_run=true; shift ;;
     -h|--help) usage ;;
@@ -109,13 +114,15 @@ fi
 # Only the files created above: an existing caller may hold the owner's edits
 # (test-command, the e2e job, a pinned version) and is never touched.
 sed_value() { printf '%s' "$1" | sed -e 's/[\\|&]/\\&/g'; }
+# A YAML double-quoted string: free text such as "Catalan: Valencian" stays valid YAML
+yaml_str() { local v="${1//\\/\\\\}"; v="${v//\"/\\\"}"; printf '"%s"' "$v"; }
 caller=.github/workflows/patufet.yml
 mention=.github/workflows/patufet-mention.yml
 if ! $dry_run && was_created "$caller"; then
   sed -i.bak \
     -e "s|@v1$|@$(sed_value "$ref")|" \
-    -e "s|language: en$|language: $(sed_value "$language")|" \
-    -e "s|human-reviewer: \"\"$|human-reviewer: \"$(sed_value "$reviewer")\"|" \
+    -e "s|language: en$|language: $(sed_value "$(yaml_str "$language")")|" \
+    -e "s|human-reviewer: \"\"$|human-reviewer: $(sed_value "$(yaml_str "$reviewer")")|" \
     "$caller"
   if ! $with_e2e; then
     sed -i.bak '/# --- e2e (optional)/,/# --- end e2e ---/d' "$caller"

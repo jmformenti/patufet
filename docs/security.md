@@ -9,7 +9,7 @@ is therefore: **whose text can reach an agent that has write access?**
 | Stage | Trigger | Who can cause it |
 |---|---|---|
 | implement | label `ready-to-implement` | only users who can label issues (triage/write) |
-| review | PR opened / pushed | anyone who can push a branch (fork PRs get no secrets); its tools only read, comment and label (see [Tokens](#tokens)) |
+| review | PR opened / pushed | anyone who can push a branch (fork PRs get no secrets); its tools read and comment, and `gh pr edit` (needed for the verdict label) can also change the PR's title, body, base branch and reviewers; no merge, no push (see [Tokens](#tokens)) |
 | fix-review | label `warning` / `fail` | the automation (App token) or a collaborator |
 | e2e | label `pass` | same |
 | mention | `@claude` in a comment | the action only answers users with write access (`allowed_non_write_users` is never set) |
@@ -25,7 +25,7 @@ Pull requests from forks never receive secrets, so they cannot run the Claude ac
 |---|---|---|
 | implement | the plan | latest issue comment with `<!-- patufet:plan -->` whose author is `OWNER` / `MEMBER` / `COLLABORATOR` (`scripts/find-plan.sh`). A plan comment by anyone else is ignored and the run is blocked. |
 | fix-review | the review report + inline comments | pre-fetched by the workflow from trusted authors only (collaborators, `claude[bot]`, `github-actions[bot]`); the prompt tells the agent to ignore any other source |
-| review, e2e | the PR diff, the issue and plan (e2e also the pages of the running app) | checkout with `contents: read`; tools limited to `gh pr view/diff/comment/edit` and `gh issue view` (no `gh api`, no `gh pr merge`); plan filtered as above |
+| review, e2e | the PR diff, the issue and plan (e2e also the pages of the running app) | checkout with `contents: read`; tools limited to `gh pr view/diff/comment/edit` and `gh issue view` (no `gh api`, no `gh pr merge`); `gh pr edit` can still change the PR's labels, title, body, base branch and reviewers; plan filtered as above |
 | mention | the comment | gated by the action's write-permission check |
 
 Untrusted text still reaches the agents: the **PR diff** itself (review, e2e) and the **issue
@@ -48,7 +48,10 @@ it before anything with write access runs.
   **write** whatever the job's `permissions:` say (claude-code-action `src/github/token.ts`),
   so the job permissions do not limit what an agent can do through `gh`. What limits it is
   `allowed-tools`: the reviewer and the e2e tester — the agents that read untrusted content
-  (the diff, the running app) — only get the `gh` subcommands they need. Widening their
+  (the diff, the running app) — only get the `gh` subcommands they need. Those still
+  include `gh pr edit`, which they need for the verdict label but which can also change the
+  PR's title, body, base branch, reviewers and milestone: a prompt injection in the diff or
+  the app could do that, not merge, push or call the API. Widening their
   `allowed-tools` (e.g. `Bash(gh api:*)`, `Bash(gh pr *)`) gives them write access to the
   repository, including merging the PR.
 - `show-full-output: true` prints the whole transcript, including tool outputs. Anything a

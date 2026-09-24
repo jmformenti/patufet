@@ -15,7 +15,7 @@ case "$1 ${2:-}" in
   "pr edit")     : ;;
   "repo view")   echo "octo/app" ;;
   "label list")  printf '%s' "${GH_STUB_LABELS:-}" ;;
-  "label create") : ;;
+  "label create") [ -z "${GH_STUB_LABEL_CREATE_FAILS:-}" ] || exit 1 ;;
   "secret list") printf '%s' "${GH_STUB_SECRETS:-}" ;;
   *) echo "gh stub: unexpected call: gh $*" >&2; exit 1 ;;
 esac

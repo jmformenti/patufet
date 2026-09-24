@@ -16,9 +16,10 @@ def latest_plan($marker; $legacy):
     | select((.body | contains($marker)) or ($legacy != "" and (.body | contains($legacy))))
   ] | last | .body // empty;
 
-# Trusted comments carrying the "<!-- patufet:<kind>" marker.
+# Trusted comments carrying the exact "<!-- patufet:<kind> ... -->" marker
+# (not "patufet:<kind>-notes" or any other prefix match).
 def reports($kind):
-  [ .[] | trusted | select(.body | contains("<!-- patufet:" + $kind)) ];
+  [ .[] | trusted | select(.body | test("<!-- patufet:" + $kind + "( [^>]*)?-->")) ];
 
 # The verdict of the report of one run: the latest trusted
 # "<!-- patufet:<kind> ... verdict=V -->" marker whose attributes include $key
@@ -27,7 +28,7 @@ def reports($kind):
 def verdict($kind; $key):
   [ reports($kind)[]
     | .body
-    | capture("<!-- patufet:" + $kind + "(?<attrs>[^>]*)-->")? | .attrs
+    | capture("<!-- patufet:" + $kind + "(?<attrs>( [^>]*)?)-->") | .attrs
     | select((. + " ") | contains(" " + $key + " "))
-    | capture("verdict=(?<v>pass|warning|fail)")? | .v
+    | capture("(^| )verdict=(?<v>pass|warning|fail)( |$)")? | .v
   ] | last // empty;

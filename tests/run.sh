@@ -26,17 +26,28 @@ lacks() {  # lacks <name> <needle> <haystack>
   if grep -qF -- "$2" <<< "$3"; then fail "$1"; printf '     unexpected: %s\n' "$2"; else pass "$1"; fi
 }
 
+# Output of read-verdict.sh, or "EXIT <code>" when it fails: an expected
+# empty verdict must not pass because the script crashed.
+rv() {
+  local out rc
+  out=$("$s/read-verdict.sh" "$@" 2>/dev/null); rc=$?
+  if [ "$rc" -eq 0 ]; then printf '%s' "$out"; else printf 'EXIT %s' "$rc"; fi
+}
+
 echo "# read-verdict.sh"
 export GH_STUB_ISSUE_COMMENTS="$fx/review-comments.json"
-eq "structured output wins" warning "$(STRUCTURED='{"verdict":"warning","summary":"x"}' "$s/read-verdict.sh" review octo/app 7 cycle=3)"
-eq "fallback: report of this cycle" warning "$(STRUCTURED='' "$s/read-verdict.sh" review octo/app 7 cycle=2 2>/dev/null)"
-eq "fallback: an earlier cycle never counts" "" "$(STRUCTURED='' "$s/read-verdict.sh" review octo/app 7 cycle=3 2>/dev/null)"
-eq "fallback: cycle=1 does not match cycle=11" fail "$(STRUCTURED='' "$s/read-verdict.sh" review octo/app 7 cycle=1 2>/dev/null)"
-eq "fallback: untrusted authors ignored" "" "$(STRUCTURED='' "$s/read-verdict.sh" review octo/app 7 cycle=3 2>/dev/null)"
-eq "e2e: report of this run" fail "$(STRUCTURED='' "$s/read-verdict.sh" e2e octo/app 7 run=55.1 2>/dev/null)"
-eq "e2e: another attempt never counts" "" "$(STRUCTURED='' "$s/read-verdict.sh" e2e octo/app 7 run=55.2 2>/dev/null)"
-eq "invalid structured verdict rejected" "" "$(STRUCTURED='{"verdict":"maybe"}' "$s/read-verdict.sh" review octo/app 7 cycle=9 2>/dev/null)"
-eq "e2e has no warning verdict" "" "$(STRUCTURED='{"verdict":"warning"}' "$s/read-verdict.sh" e2e octo/app 7 run=1.1 2>/dev/null)"
+eq "structured output wins" warning "$(STRUCTURED='{"verdict":"warning","summary":"x"}' rv review octo/app 7 cycle=3)"
+eq "fallback: report of this cycle" warning "$(STRUCTURED='' rv review octo/app 7 cycle=2)"
+eq "fallback: an earlier cycle never counts" "" "$(STRUCTURED='' rv review octo/app 7 cycle=3)"
+eq "fallback: cycle=1 does not match cycle=11" fail "$(STRUCTURED='' rv review octo/app 7 cycle=1)"
+eq "fallback: untrusted authors ignored" "" "$(STRUCTURED='' rv review octo/app 7 cycle=3)"
+eq "fallback: another marker kind ignored" "" "$(STRUCTURED='' rv review octo/app 7 cycle=4)"
+eq "fallback: verdict must be exact" "" "$(STRUCTURED='' rv review octo/app 7 cycle=5)"
+eq "e2e: report of this run" fail "$(STRUCTURED='' rv e2e octo/app 7 run=55.1)"
+eq "e2e: another attempt never counts" "" "$(STRUCTURED='' rv e2e octo/app 7 run=55.2)"
+eq "invalid structured verdict rejected" "" "$(STRUCTURED='{"verdict":"maybe"}' rv review octo/app 7 cycle=9)"
+eq "multi-line verdict rejected" "" "$(STRUCTURED='{"verdict":"pass\ninvalid"}' rv review octo/app 7 cycle=9)"
+eq "e2e has no warning verdict" "" "$(STRUCTURED='{"verdict":"warning"}' rv e2e octo/app 7 run=1.1)"
 
 echo "# find-plan.sh / count-review-cycles.sh / find-review-report.sh"
 export GH_STUB_ISSUE_COMMENTS="$fx/plan-comments.json"
@@ -44,7 +55,7 @@ eq "latest collaborator plan wins; strangers and bots ignored" $'<!-- patufet:pl
 has "legacy heading accepted when configured" "old style plan" "$("$s/find-plan.sh" octo/app 3 "## Pla d'implementació")"
 export GH_STUB_ISSUE_COMMENTS="$fx/review-comments.json"
 if "$s/find-plan.sh" octo/app 3 >/dev/null 2>&1; then fail "no trusted plan → exit 1"; else pass "no trusted plan → exit 1"; fi
-eq "cycles count trusted reports only" 3 "$("$s/count-review-cycles.sh" octo/app 7)"
+eq "cycles count trusted reports with the exact marker only" 4 "$("$s/count-review-cycles.sh" octo/app 7)"
 has "latest trusted report" "cycle=11 verdict=pass" "$("$s/find-review-report.sh" octo/app 7)"
 
 echo "# find-inline-comments.sh"
@@ -57,7 +68,7 @@ lacks "untrusted comment left out" "rm -rf" "$out"
 echo "# find-linked-issue.sh"
 linked() {
   jq -n --arg body "$1" --arg branch "${2:-feature/x}" '{body: $body, headRefName: $branch}' > "$work/pr.json"
-  GH_STUB_PR_VIEW="$work/pr.json" "$s/find-linked-issue.sh" octo/app 7 agent/issue-
+  GH_STUB_PR_VIEW="$work/pr.json" "$s/find-linked-issue.sh" octo/app 7 agent/issue- || printf 'EXIT %s' "$?"
 }
 eq "Closes #12" 12 "$(linked 'Closes #12')"
 eq "closes: #12" 12 "$(linked 'This closes: #12')"
@@ -82,6 +93,7 @@ echo "# ensure-labels.sh"
 : > "$GH_STUB_LOG"
 GH_STUB_LABELS=$'pass\nbug' "$s/ensure-labels.sh" pass=0E8A16 fail=B60205 >/dev/null
 eq "only missing labels created, never --force" $'gh label list --limit 1000 --json name --jq .[].name\ngh label create fail --color B60205' "$(cat "$GH_STUB_LOG")"
+if GH_STUB_LABELS=pass GH_STUB_LABEL_CREATE_FAILS=1 "$s/ensure-labels.sh" pass=0E8A16 fail=B60205 >/dev/null; then fail "a label still missing → exit 1"; else pass "a label still missing → exit 1"; fi
 
 echo "# render-prompt.sh"
 printf 'A {{a}} B {{ missing }} C\n' > "$work/t.md"
@@ -127,10 +139,11 @@ mkdir -p "$repo/.github/workflows"
   cd "$repo" || exit 1
   export GH_STUB_LABELS="pass" GH_STUB_SECRETS="ANTHROPIC_API_KEY"
   : > "$GH_STUB_LOG"
-  "$s/bootstrap.sh" --reviewer ana --language ca --with-e2e > "$work/b1.log" 2>&1 || echo "bootstrap failed: $(cat "$work/b1.log")"
+  if "$s/bootstrap.sh" --reviewer --with-e2e > /dev/null 2>&1; then echo "FAIL an option is not accepted as a value"; else echo "ok   an option is not accepted as a value"; fi
+  "$s/bootstrap.sh" --reviewer ana --language ca --with-e2e > "$work/b1.log" 2>&1 || echo "FAIL bootstrap exited non-zero: $(cat "$work/b1.log")"
   caller=.github/workflows/patufet.yml
   [ "$(grep -c 'human-reviewer: "ana"' "$caller")" = 2 ] && echo "ok   reviewer filled in (fix-review and e2e)" || echo "FAIL reviewer filled in"
-  [ "$(grep -c 'language: ca$' "$caller")" = 4 ] && echo "ok   language filled in" || echo "FAIL language filled in"
+  [ "$(grep -c 'language: "ca"$' "$caller")" = 4 ] && echo "ok   language filled in" || echo "FAIL language filled in"
   grep -q 'e2e.yml@v1$' "$caller" && echo "ok   e2e job installed" || echo "FAIL e2e job installed"
   [ -f .github/patufet/e2e-up.sh ] && echo "ok   e2e hooks copied" || echo "FAIL e2e hooks copied"
   grep -q 'label create pass' "$GH_STUB_LOG" && echo "FAIL existing label recreated" || echo "ok   existing label left untouched"
@@ -138,10 +151,14 @@ mkdir -p "$repo/.github/workflows"
   # the owner edits the caller, then re-runs the bootstrap with other options
   sed -i 's|echo "TODO: put your test/build commands here"|make test|' "$caller"
   before=$(cat .github/workflows/*.yml .github/patufet/* | md5sum)
-  "$s/bootstrap.sh" --reviewer bob --language en --ref v9 > "$work/b2.log" 2>&1 || echo "bootstrap failed: $(cat "$work/b2.log")"
+  "$s/bootstrap.sh" --reviewer bob --language en --ref v9 > "$work/b2.log" 2>&1 || echo "FAIL bootstrap re-run exited non-zero: $(cat "$work/b2.log")"
   [ "$(cat .github/workflows/*.yml .github/patufet/* | md5sum)" = "$before" ] \
     && echo "ok   re-run modifies no existing file (e2e job, test-command, ref kept)" \
     || echo "FAIL re-run modifies no existing file"
+  rm -rf .github .claude
+  "$s/bootstrap.sh" --reviewer ana --language 'Catalan: Valencian "x"' > /dev/null 2>&1 || echo "FAIL bootstrap with free-text language"
+  grep -qxF '      language: "Catalan: Valencian \"x\""' .github/workflows/patufet.yml \
+    && echo "ok   free-text language written as a YAML string" || echo "FAIL free-text language written as a YAML string"
 ) > "$work/bootstrap.out"
 cat "$work/bootstrap.out"
 failures=$((failures + $(grep -c '^FAIL' "$work/bootstrap.out")))
