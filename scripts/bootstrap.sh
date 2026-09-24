@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Install patufet in the repository of the current directory.
 #
-#   bash <(curl -sSL https://raw.githubusercontent.com/jmformenti/patufet/main/scripts/bootstrap.sh) \
+#   bash <(curl -sSL https://raw.githubusercontent.com/jmformenti/patufet/v1/scripts/bootstrap.sh) \
 #     --reviewer <github-login> [--language ca] [--ref v1] [--with-e2e] [--dry-run]
 #
-# What it does (idempotent, never overwrites an existing file):
+# What it does (idempotent, never modifies an existing file):
 #   1. copies the caller workflows, the prompt extension files, the e2e hooks
 #      (only with --with-e2e) and the /plan-issue command;
-#   2. fills in --reviewer / --language / --ref in the caller workflow;
+#   2. fills in --reviewer / --language / --ref in the caller workflows it has
+#      just created (an existing caller is left exactly as it is);
 #   3. creates the 8 flow labels (existing ones are left untouched, with a warning);
 #   4. checks that CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY is set;
 #   5. warns about workflows that already use anthropics/claude-code-action.
@@ -20,13 +21,33 @@ ref="v1"
 with_e2e=false
 dry_run=false
 
-usage() { sed -n '2,15p' "$0"; exit "${1:-0}"; }
+usage() {
+  cat <<'USAGE'
+Install patufet in the repository of the current directory.
+
+  bootstrap.sh --reviewer <github-login> [--language ca] [--ref v1] [--with-e2e] [--dry-run]
+
+  --reviewer   GitHub login (without @) mentioned when the flow needs a human
+  --language   language of the comments Claude writes (ISO code or free text; default en)
+  --ref        patufet version the caller workflows use (default v1)
+  --with-e2e   also install the live e2e stage and its hooks
+  --dry-run    print what would be done, change nothing
+
+Idempotent: existing files and labels are never modified.
+USAGE
+  exit "${1:-0}"
+}
+
+# An option's value must not be missing or be the next option (--reviewer --with-e2e)
+need_value() {
+  if [ $# -lt 2 ] || [ -z "$2" ] || [[ "$2" == --* ]]; then echo "$1 needs a value" >&2; usage 1 >&2; fi
+}
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --reviewer) reviewer="$2"; shift 2 ;;
-    --language) language="$2"; shift 2 ;;
-    --ref) ref="$2"; shift 2 ;;
+    --reviewer) need_value "$@"; reviewer="$2"; shift 2 ;;
+    --language) need_value "$@"; language="$2"; shift 2 ;;
+    --ref) need_value "$@"; ref="$2"; shift 2 ;;
     --with-e2e) with_e2e=true; shift ;;
     --dry-run) dry_run=true; shift ;;
     -h|--help) usage ;;
@@ -68,13 +89,16 @@ if [ -n "$existing" ]; then
 fi
 
 # --- copy files (never overwrite) --------------------------------------------
+created=()
 copy() {
   local src="$templates/$1" dst="$1"
   if [ -e "$dst" ]; then echo "  keep   $dst (already exists)"; return; fi
   echo "  create $dst"
   run mkdir -p "$(dirname "$dst")"
   run cp "$src" "$dst"
+  created+=("$dst")
 }
+was_created() { local f; for f in ${created[@]+"${created[@]}"}; do [ "$f" = "$1" ] && return 0; done; return 1; }
 copy .github/workflows/patufet.yml
 copy .github/workflows/patufet-mention.yml
 copy .github/patufet/implement.md
@@ -86,19 +110,27 @@ if $with_e2e; then
   copy .github/patufet/e2e-down.sh
 fi
 
-# --- fill in the caller ------------------------------------------------------
+# --- fill in the callers ----------------------------------------------------
+# Only the files created above: an existing caller may hold the owner's edits
+# (test-command, the e2e job, a pinned version) and is never touched.
+sed_value() { printf '%s' "$1" | sed -e 's/[\\|&]/\\&/g'; }
+# A YAML double-quoted string: free text such as "Catalan: Valencian" stays valid YAML
+yaml_str() { local v="${1//\\/\\\\}"; v="${v//\"/\\\"}"; printf '"%s"' "$v"; }
 caller=.github/workflows/patufet.yml
-if ! $dry_run && [ -f "$caller" ]; then
+mention=.github/workflows/patufet-mention.yml
+if ! $dry_run && was_created "$caller"; then
   sed -i.bak \
-    -e "s|@v1$|@$ref|" \
-    -e "s|language: en$|language: $language|" \
-    -e "s|human-reviewer: \"\"$|human-reviewer: \"$reviewer\"|" \
+    -e "s|@v1$|@$(sed_value "$ref")|" \
+    -e "s|language: en$|language: $(sed_value "$(yaml_str "$language")")|" \
+    -e "s|human-reviewer: \"\"$|human-reviewer: $(sed_value "$(yaml_str "$reviewer")")|" \
     "$caller"
   if ! $with_e2e; then
     sed -i.bak '/# --- e2e (optional)/,/# --- end e2e ---/d' "$caller"
   fi
   rm -f "$caller.bak"
-  sed -i.bak -e "s|@v1$|@$ref|" .github/workflows/patufet-mention.yml && rm -f .github/workflows/patufet-mention.yml.bak
+fi
+if ! $dry_run && was_created "$mention"; then
+  sed -i.bak -e "s|@v1$|@$(sed_value "$ref")|" "$mention" && rm -f "$mention.bak"
 fi
 
 # --- labels ------------------------------------------------------------------
@@ -137,13 +169,12 @@ else
   echo "         Run 'claude setup-token' locally, then: gh secret set CLAUDE_CODE_OAUTH_TOKEN"
 fi
 
-cat <<MSG
-
-Done. Next steps:
-  1. Edit $caller: fill in test-command and ci-check-names.
-  2. Edit .github/patufet/*.md with your project's checklist (or delete them).
-$( $with_e2e && echo "  3. Adapt .github/patufet/e2e-up.sh / e2e-down.sh to start your app." )
-  4. Install the Claude GitHub App on the repository if not done: https://github.com/apps/claude
-  5. Commit, then open an issue and run /plan-issue <n> from Claude Code.
-Docs: https://github.com/$TEMPLATE_REPO#readme
-MSG
+steps=("Edit $caller: fill in test-command and ci-check-names."
+       "Edit .github/patufet/*.md with your project's checklist (or delete them).")
+$with_e2e && steps+=("Adapt .github/patufet/e2e-up.sh / e2e-down.sh to start your app.")
+steps+=("Install the Claude GitHub App on the repository if not done: https://github.com/apps/claude"
+        "Commit, then open an issue and run /plan-issue <n> from Claude Code.")
+echo
+echo "Done. Next steps:"
+for i in "${!steps[@]}"; do echo "  $((i + 1)). ${steps[$i]}"; done
+echo "Docs: https://github.com/$TEMPLATE_REPO#readme"

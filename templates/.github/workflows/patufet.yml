@@ -34,8 +34,9 @@ jobs:
     with:
       issue-number: ${{ fromJSON(inputs.issue || github.event.issue.number) }}
       language: en
-      # Shell that must pass before a PR is opened (leave empty to let the agent infer it)
-      test-command: |
+      # Shell that must pass before a PR is opened (leave empty to let the agent infer it).
+      # fix-review reuses it through the YAML alias *test-command.
+      test-command: &test-command |
         echo "TODO: put your test/build commands here"
 
   # every push to a non-draft PR → review + verdict label
@@ -72,8 +73,7 @@ jobs:
       language: en
       max-review-cycles: 10
       human-reviewer: ""
-      test-command: |
-        echo "TODO: put your test/build commands here"
+      test-command: *test-command
 
   # --- e2e (optional): remove this job if the app cannot run on a GitHub runner ---
   # pass → start the app with .github/patufet/e2e-up.sh and test it live

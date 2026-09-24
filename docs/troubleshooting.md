@@ -47,9 +47,10 @@ Happened with the `code-review` plugin: it spawns parallel subagents and in non-
 CI mode the main turn ends before they report. The template uses a direct prompt and tells
 the model not to launch subagents.
 
-**`needs-human-review` with "produced no verdict".**
-Neither structured output nor a marker comment was found: the model did not follow the
-output contract (often a `max-turns` exhaustion). Check the log; re-run by pushing an empty
+**`needs-human-review` with "review cycle N produced no verdict".**
+Neither structured output nor a marker comment of that cycle was found: the model did not
+follow the output contract (often a `max-turns` exhaustion; the job summary shows the turns).
+Reports of earlier cycles are deliberately ignored. Check the log; re-run by pushing an empty
 commit or re-labelling.
 
 ## E2E
@@ -89,7 +90,11 @@ exports `TPL_DIR` from a step via `$GITHUB_ENV`.
 They are documented GitHub context properties (workflow identity for reusable workflows)
 that actionlint does not know yet; `self-check.yml` ignores exactly that message.
 
+**Re-running the bootstrap did not update my caller.**
+By design: it never modifies an existing file. Edit `.github/workflows/patufet.yml` by hand
+(e.g. to add the e2e job, copy it from `templates/.github/workflows/patufet.yml`).
+
 **Nothing runs at all.**
 Check, in order: the Claude GitHub App is installed on the repository; the secret exists;
 the caller's `permissions:` are at least those in security.md; the labels exist (the
-bootstrap creates them, `review.yml` recreates the verdict ones).
+bootstrap creates them, `review.yml` creates the verdict ones if missing).

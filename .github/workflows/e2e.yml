@@ -26,46 +26,63 @@ on:
         type: string
         default: ''
       branch-prefix:
+        description: Branch prefix used by implement.yml, to find the linked issue
         type: string
         default: agent/issue-
       language:
+        description: Language for the comments Claude writes (free text or ISO code)
         type: string
         default: en
       model:
+        description: Claude model override (empty = action default)
         type: string
         default: ''
       max-turns:
+        description: --max-turns for the agent
         type: number
         default: 200
       allowed-tools:
+        description: --allowedTools for the agent. gh runs with the Claude App token, which can write (and merge); keep this list to reading, commenting and labelling
         type: string
-        default: mcp__playwright__*,Bash(gh pr *),Bash(gh issue *)
+        default: mcp__playwright__*,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh pr edit:*),Bash(gh issue view:*)
       allowed-bots:
+        description: Bots whose events may trigger the run (the reviewer labels as "claude")
         type: string
         default: claude
       claude-args-extra:
+        description: Extra arguments appended to claude_args
         type: string
         default: ''
       show-full-output:
+        description: Show the full Claude transcript in the job log (may leak secrets printed by tools)
         type: boolean
         default: true
       install-playwright:
         description: Install the Playwright Chromium browser on the runner
         type: boolean
         default: true
+      playwright-mcp-version:
+        description: Version of @playwright/mcp; the browser installed is the one of the Playwright version it depends on
+        type: string
+        default: 0.0.82
       label-pass:
+        description: Verdict label "pass" (the trigger of this stage)
         type: string
         default: pass
       label-warning:
+        description: Verdict label "warning"
         type: string
         default: warning
       label-fail:
+        description: Verdict label "fail" (sends the PR back to fix-review)
         type: string
         default: fail
       legacy-plan-heading:
+        description: Also accept plan comments containing this heading (migration aid). Empty = marker only
         type: string
         default: ''
       timeout-minutes:
+        description: Job timeout
         type: number
         default: 30
     secrets:
@@ -90,11 +107,15 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
+      # Identifies this run's report comment, so an earlier run's never counts
+      RUN_KEY: ${{ github.run_id }}.${{ github.run_attempt }}
     steps:
-      - name: Checkout the PR branch
+      # The exact commit that got the `pass` label, not whatever the branch
+      # points to now
+      - name: Checkout the PR head commit
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
       - name: Fetch patufet template
@@ -126,17 +147,21 @@ jobs:
           echo "Environment exported by the hook:"
           sed 's/=.*/=…/' "$PATUFET_E2E_ENV"
 
-      # `timeout` + retries: on a real run the inner apt-get of this command
+      # The browser must match the Playwright version the MCP server is built
+      # on. `timeout` + retries: on a real run the inner apt-get of this command
       # hung for 27 min against a flaky runner mirror until the job timed out
       - name: Install the Playwright browser
         if: inputs.install-playwright
         env:
           DEBIAN_FRONTEND: noninteractive
           NEEDRESTART_MODE: a
+          MCP_VERSION: ${{ inputs.playwright-mcp-version }}
         run: |
+          pw=$(npm view "@playwright/mcp@$MCP_VERSION" dependencies.playwright)
+          echo "@playwright/mcp@$MCP_VERSION uses playwright@$pw"
           for i in 1 2 3; do
             echo "Attempt $i of 3..."
-            timeout 300 npx -y playwright install --with-deps chromium && exit 0
+            timeout 300 npx -y "playwright@$pw" install --with-deps chromium && exit 0
             echo "Attempt $i failed or hung (5 min timeout)."
           done
           echo "All attempts failed."
@@ -147,42 +172,26 @@ jobs:
         env:
           BRANCH_PREFIX: ${{ inputs.branch-prefix }}
           LEGACY_HEADING: ${{ inputs.legacy-plan-heading }}
-        run: |
-          issue=$("$TPL_DIR/scripts/find-linked-issue.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER" "$BRANCH_PREFIX")
-          echo "issue=$issue" >> "$GITHUB_OUTPUT"
-          if [ -n "$issue" ] && "$TPL_DIR/scripts/find-plan.sh" "$GITHUB_REPOSITORY" "$issue" "$LEGACY_HEADING" > "$RUNNER_TEMP/plan.md"; then
-            echo "has_plan=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_plan=false" >> "$GITHUB_OUTPUT"
-            : > "$RUNNER_TEMP/plan.md"
-          fi
+        run: '"$TPL_DIR/scripts/gather-context.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER" "$BRANCH_PREFIX" "$LEGACY_HEADING" e2e "$RUNNER_TEMP" >> "$GITHUB_OUTPUT"'
 
       - name: Render the prompt
         id: prompt
         env:
           TPL_pr: ${{ github.event.pull_request.number }}
           TPL_repository: ${{ github.repository }}
-          TPL_issue: ${{ steps.context.outputs.issue }}
           TPL_language: ${{ inputs.language }}
-          HAS_PLAN: ${{ steps.context.outputs.has_plan }}
+          TPL_run: ${{ github.run_id }}.${{ github.run_attempt }}
+          TPL_label_pass: ${{ inputs.label-pass }}
+          TPL_label_warning: ${{ inputs.label-warning }}
+          TPL_label_fail: ${{ inputs.label-fail }}
           EXTRA_FILE: ${{ inputs.extra-instructions-file }}
         run: |
           TPL_e2e_env="$(sed -E 's/^([^=]+)=(.*)$/- \1: \2/' "$PATUFET_E2E_ENV")"
           [ -n "$TPL_e2e_env" ] || TPL_e2e_env="(the up-script exported nothing)"
           export TPL_e2e_env
-          if [ "$HAS_PLAN" = "true" ]; then
-            TPL_plan_section="$(printf 'The PR implements issue #%s. Its approved plan, reproduced below, tells you which functionality to exercise:\n\n<plan>\n%s\n</plan>' "$TPL_issue" "$(cat "$RUNNER_TEMP/plan.md")")"
-          elif [ -n "$TPL_issue" ]; then
-            TPL_plan_section="The PR references issue #$TPL_issue (\`gh issue view $TPL_issue\`); use it to know which functionality to exercise."
-          else
-            TPL_plan_section="The PR is not linked to any issue; derive what to test from the diff and the PR description."
-          fi
-          export TPL_plan_section
-          {
-            echo "text<<PATUFET_PROMPT_EOF"
-            "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/e2e.md" "$EXTRA_FILE"
-            echo "PATUFET_PROMPT_EOF"
-          } >> "$GITHUB_OUTPUT"
+          TPL_plan_section="$(cat "$RUNNER_TEMP/plan_section.md")"; export TPL_plan_section
+          "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/e2e.md" "$EXTRA_FILE" \
+            | "$TPL_DIR/scripts/github-output.sh" text
 
       - name: Live functional test with Claude + Playwright MCP
         id: claude
@@ -194,7 +203,7 @@ jobs:
           show_full_output: ${{ inputs.show-full-output }}
           claude_args: |
             --max-turns ${{ inputs.max-turns }}
-            --mcp-config '{"mcpServers":{"playwright":{"command":"npx","args":["@playwright/mcp@latest","--headless"]}}}'
+            --mcp-config '{"mcpServers":{"playwright":{"command":"npx","args":["@playwright/mcp@${{ inputs.playwright-mcp-version }}","--headless"]}}}'
             --allowedTools "${{ inputs.allowed-tools }}"
             --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["pass","fail"]},"summary":{"type":"string"}},"required":["verdict","summary"]}'
             ${{ inputs.model != '' && format('--model {0}', inputs.model) || '' }}
@@ -204,9 +213,11 @@ jobs:
       # On failure Claude itself relabels the PR `fail` inside the action (app
       # token → fix-review triggers; the token is revoked when the action ends).
       # This step verifies/repairs the label and, on success, asks the human
-      # reviewer to merge.
+      # reviewer to merge — only if the PR is still at the tested commit.
+      # Not on cancellation: a superseded run must not label.
       - name: Apply the e2e verdict
-        if: always() && steps.claude.conclusion != 'skipped'
+        id: verdict
+        if: ${{ !cancelled() && steps.claude.conclusion != 'skipped' }}
         env:
           STRUCTURED: ${{ steps.claude.outputs.structured_output }}
           CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
@@ -215,34 +226,35 @@ jobs:
           LABEL_WARNING: ${{ inputs.label-warning }}
           LABEL_FAIL: ${{ inputs.label-fail }}
           REVIEWER: ${{ inputs.human-reviewer }}
+          TESTED_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           if [ -z "$CLAUDE_EXECUTION_FILE" ]; then
             echo "::error::The Claude action did not run (see its step log). No verdict."
             exit 1
           fi
-          verdict=$(jq -r '.verdict // empty' <<< "$STRUCTURED" 2>/dev/null || true)
-          if [ -z "$verdict" ]; then
-            verdict=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --paginate \
-              --jq '[ .[] | select(.body | contains("<!-- patufet:e2e")) ] | last | .body // empty' \
-              | grep -oE 'patufet:e2e[^>]*verdict=(pass|fail)' | head -1 | sed -E 's/.*verdict=//' || true)
-          fi
+          verdict=$("$TPL_DIR/scripts/read-verdict.sh" e2e "$GITHUB_REPOSITORY" "$PR_NUMBER" "run=$RUN_KEY")
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
           if [ -z "$verdict" ] || [ "$CLAUDE_OUTCOME" != "success" ]; then
             gh pr comment "$PR_NUMBER" --body "⚠️ patufet: the live e2e run produced no verdict (outcome: $CLAUDE_OUTCOME). Manual check needed. See ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             exit 1
           fi
           if [ "$verdict" = "fail" ]; then
-            current=$(gh pr view "$PR_NUMBER" --json labels --jq '[.labels[].name] | join(",")')
-            if tr ',' '\n' <<< "$current" | grep -qx "$LABEL_FAIL"; then
+            if gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' | grep -qxF "$LABEL_FAIL"; then
               echo "e2e failed and the PR is labelled '$LABEL_FAIL'."
             else
-              echo "::warning::e2e failed but the PR is not labelled '$LABEL_FAIL' (labels: '$current'); repairing with GITHUB_TOKEN — fix-review will NOT be triggered automatically"
+              echo "::warning::e2e failed but the PR is not labelled '$LABEL_FAIL'; repairing with GITHUB_TOKEN — fix-review will NOT be triggered automatically"
               "$TPL_DIR/scripts/set-verdict-label.sh" "$PR_NUMBER" fail "$LABEL_PASS" "$LABEL_WARNING" "$LABEL_FAIL"
               gh pr comment "$PR_NUMBER" --body "⚠️ patufet: the e2e tester reported a failure but did not relabel the PR; the label was repaired by the workflow, which cannot trigger the next stage. Remove and re-add the \`$LABEL_FAIL\` label by hand to continue."
             fi
           else
-            mention=""
-            [ -n "$REVIEWER" ] && mention=" @$REVIEWER"
-            gh pr comment "$PR_NUMBER" --body "✅ patufet: code review and live e2e test passed. Ready for human review and merge.$mention"
+            head=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
+            if [ "$head" != "$TESTED_SHA" ]; then
+              gh pr comment "$PR_NUMBER" --body "ℹ️ patufet: the live e2e test passed on ${TESTED_SHA:0:7}, but the PR has moved on to ${head:0:7}; the new commits go through review (and e2e) again."
+            else
+              mention=""
+              [ -n "$REVIEWER" ] && mention=" @$REVIEWER"
+              gh pr comment "$PR_NUMBER" --body "✅ patufet: code review and live e2e test passed. Ready for human review and merge.$mention"
+            fi
           fi
 
       - name: Stop the application (e2e-down hook)
@@ -251,3 +263,10 @@ jobs:
           DOWN_SCRIPT: ${{ inputs.down-script }}
         run: |
           if [ -f "$DOWN_SCRIPT" ]; then bash "$DOWN_SCRIPT"; else echo "No down-script '$DOWN_SCRIPT'; nothing to stop."; fi
+
+      - name: Summary
+        if: always() && env.TPL_DIR != ''
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+          VERDICT: ${{ steps.verdict.outputs.verdict }}
+        run: '"$TPL_DIR/scripts/run-summary.sh" e2e "$EXECUTION_FILE" "PR: #$PR_NUMBER" "Verdict: ${VERDICT:-none}"'

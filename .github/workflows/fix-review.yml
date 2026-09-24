@@ -13,6 +13,7 @@ on:
         type: number
         default: 10
       test-command:
+        description: Shell command(s) that must pass before pushing (multi-line allowed). Empty = let the agent infer from the repository docs
         type: string
         default: ''
       human-reviewer:
@@ -20,33 +21,43 @@ on:
         type: string
         default: ''
       extra-instructions-file:
+        description: Path (in the consumer repo) of a Markdown file appended to the base prompt
         type: string
         default: .github/patufet/implement.md
       language:
+        description: Language for the comments Claude writes (free text or ISO code)
         type: string
         default: en
       model:
+        description: Claude model override (empty = action default)
         type: string
         default: ''
       max-turns:
+        description: --max-turns for the agent
         type: number
         default: 400
       allowed-tools:
+        description: --allowedTools for the agent
         type: string
         default: Bash,Edit,Write,Read,Glob,Grep
       allowed-bots:
+        description: Bots whose events may trigger the run (the reviewer labels as "claude")
         type: string
         default: claude
       claude-args-extra:
+        description: Extra arguments appended to claude_args
         type: string
         default: ''
       show-full-output:
+        description: Show the full Claude transcript in the job log (may leak secrets printed by tools)
         type: boolean
         default: true
       label-needs-human-review:
+        description: Label set when the cycle limit is reached
         type: string
         default: needs-human-review
       timeout-minutes:
+        description: Job timeout
         type: number
         default: 45
     secrets:
@@ -106,7 +117,7 @@ jobs:
           MAX_CYCLES: ${{ inputs.max-review-cycles }}
           REVIEWER: ${{ inputs.human-reviewer }}
         run: |
-          gh label create "$LABEL_NHR" --color 5319E7 --force
+          "$TPL_DIR/scripts/ensure-labels.sh" "$LABEL_NHR=5319E7"
           gh pr edit "$PR_NUMBER" --add-label "$LABEL_NHR"
           mention=""
           [ -n "$REVIEWER" ] && mention=" @$REVIEWER"
@@ -133,19 +144,12 @@ jobs:
           TPL_inline_comments="$("$TPL_DIR/scripts/find-inline-comments.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER")"
           [ -n "$TPL_inline_comments" ] || TPL_inline_comments="(none)"
           export TPL_inline_comments
-          if [ -n "$TEST_COMMAND" ]; then
-            TPL_test_command="$(printf '```bash\n%s\n```' "$TEST_COMMAND")"
-          else
-            TPL_test_command="(No test command configured: run whatever the repository documents as its test suite and build, e.g. in CLAUDE.md or README.)"
-          fi
-          export TPL_test_command
-          {
-            echo "text<<PATUFET_PROMPT_EOF"
-            "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/fix-review.md" "$EXTRA_FILE"
-            echo "PATUFET_PROMPT_EOF"
-          } >> "$GITHUB_OUTPUT"
+          TPL_test_command="$("$TPL_DIR/scripts/format-test-command.sh" "$TEST_COMMAND")"; export TPL_test_command
+          "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/fix-review.md" "$EXTRA_FILE" \
+            | "$TPL_DIR/scripts/github-output.sh" text
 
       - name: Run Claude Code (apply the review)
+        id: claude
         if: fromJSON(steps.cycles.outputs.count) < fromJSON(inputs.max-review-cycles)
         uses: anthropics/claude-code-action@v1
         with:
@@ -159,3 +163,11 @@ jobs:
             ${{ inputs.model != '' && format('--model {0}', inputs.model) || '' }}
             ${{ inputs.claude-args-extra }}
           prompt: ${{ steps.prompt.outputs.text }}
+
+      - name: Summary
+        if: always() && env.TPL_DIR != ''
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+          COUNT: ${{ steps.cycles.outputs.count }}
+          MAX_CYCLES: ${{ inputs.max-review-cycles }}
+        run: '"$TPL_DIR/scripts/run-summary.sh" fix-review "$EXECUTION_FILE" "PR: #$PR_NUMBER" "Review cycles: $COUNT of $MAX_CYCLES"'

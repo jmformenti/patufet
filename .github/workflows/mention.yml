@@ -9,6 +9,7 @@ on:
   workflow_call:
     inputs:
       model:
+        description: Claude model override (empty = action default)
         type: string
         default: ''
       claude-args-extra:
@@ -16,6 +17,7 @@ on:
         type: string
         default: ''
       timeout-minutes:
+        description: Job timeout
         type: number
         default: 30
     secrets:

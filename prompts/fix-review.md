@@ -25,7 +25,9 @@ Run the relevant tests and build:
 
 Do not push with failing tests.
 
-Commit and push directly to the current PR branch — do not open a new PR.
+Commit as you go, but **push once, at the end**, directly to the current PR branch — do not
+open a new PR. Every push starts a new automatic review; intermediate pushes would review
+half-applied fixes and spend review cycles.
 
 If a review point is ambiguous or needs a decision you cannot take with the information
 available, do not "fix" it blindly: leave a clear comment on the PR explaining the concrete

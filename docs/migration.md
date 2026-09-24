@@ -2,8 +2,8 @@
 
 ## In a new repository
 
-Run `scripts/bootstrap.sh` (see the README's manual quick start), fill in the `TODO`s, commit. Open a
-small issue (a text change, a test) and run one full cycle before trusting it with real work.
+Follow the README (with an agent: [ADOPTING.md](../ADOPTING.md)). Then open a small issue (a
+text change, a test) and run one full cycle before trusting it with real work.
 
 ## In a repository that already has a copied version of the flow
 

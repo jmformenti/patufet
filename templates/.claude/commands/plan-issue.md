@@ -16,6 +16,8 @@ Prepare issue #$ARGUMENTS of this repository for the autonomous implementation f
    - Post the plan as an issue comment with `gh issue comment $ARGUMENTS --body-file <file>`.
      The comment must start with the line `<!-- patufet:plan -->` followed by a heading
      (e.g. `## Implementation plan`).
-   - Mark the issue as ready with `gh issue edit $ARGUMENTS --add-label ready-to-implement`.
-     This label starts the automatic implementation immediately, so never add it without my
-     explicit confirmation.
+   - Mark the issue as ready with `gh issue edit $ARGUMENTS --add-label <ready label>`, where
+     the ready label is the `label-ready` value of the `implement` job in
+     `.github/workflows/patufet.yml`, or `ready-to-implement` if it is not set. This label
+     starts the automatic implementation immediately, so never add it without my explicit
+     confirmation.

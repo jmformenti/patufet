@@ -14,8 +14,7 @@ pr="${2:?pr number is required}"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 report=$(gh api "repos/$repo/issues/$pr/comments" --paginate \
-  | jq -s -r -L "$here" 'include "trusted-comments";
-      add | [ .[] | trusted | select(.body | contains("<!-- patufet:review")) ] | last | .body // empty')
+  | jq -s -r -L "$here" 'include "trusted-comments"; add | reports("review") | last | .body // empty')
 
 if [ -z "$report" ]; then
   echo "find-review-report: PR #$pr has no trusted review report" >&2
