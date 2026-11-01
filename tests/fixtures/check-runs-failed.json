@@ -6,6 +6,8 @@
     {"name": "Frontend Build", "status": "completed", "conclusion": "skipped", "details_url": "https://github.com/octo/app/actions/runs/100/job/202", "app": {"slug": "github-actions"}},
     {"name": "test (ubuntu, 21)", "status": "completed", "conclusion": "success", "details_url": "https://github.com/octo/app/actions/runs/100/job/203", "app": {"slug": "github-actions"}},
     {"name": "Lint, style", "status": "completed", "conclusion": "success", "details_url": "https://github.com/octo/app/actions/runs/100/job/204", "app": {"slug": "github-actions"}},
+    {"name": "test (Node.js (20), ubuntu)", "status": "completed", "conclusion": "success", "details_url": "https://github.com/octo/app/actions/runs/100/job/205", "app": {"slug": "github-actions"}},
+    {"name": "Build (debug", "status": "completed", "conclusion": "success", "details_url": "https://github.com/octo/app/actions/runs/100/job/206", "app": {"slug": "github-actions"}},
     {"name": "External CI", "status": "completed", "conclusion": "timed_out", "details_url": "https://ci.example.com/build/9", "app": {"slug": "circleci"}},
     {"name": "review", "status": "in_progress", "conclusion": null, "details_url": "https://github.com/octo/app/actions/runs/101/job/301", "app": {"slug": "github-actions"}}
   ]

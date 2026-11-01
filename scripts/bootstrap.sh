@@ -119,16 +119,20 @@ mention=.github/workflows/patufet-mention.yml
 ci_checks="" ci_dynamic="" ci_detected=false
 if was_created "$caller" && [ -f "$detect_ci" ]; then
   ci_detected=true
-  detected=$(bash "$detect_ci")
-  ci_checks=$(awk -F'\t' '$1 == "check" { s = s (s == "" ? "" : ", ") $2 } END { print s }' <<<"$detected")
+  # Filling in ci-checks is a convenience: a failure here must not stop the install
+  if ! detected=$(bash "$detect_ci"); then
+    echo "WARNING: could not detect the CI jobs; fill in ci-checks in $caller by hand."
+    ci_detected=false detected=""
+  fi
+  ci_checks=$(awk -F'\t' '$1 == "check" { s = s sep $2; sep = ", " } END { print s }' <<<"$detected")
   ci_dynamic=$(awk -F'\t' '$1 == "dynamic" { print $2 }' <<<"$detected")
   if [ -n "$ci_checks" ]; then echo "CI checks detected for ci-checks: $ci_checks"; fi
   if [ -n "$ci_dynamic" ]; then
     echo "WARNING: these CI jobs could not be listed in ci-checks (matrix, expression, reusable workflow,"
-    echo "         a comma in the name); add them by hand as they appear in a PR's checks:"
+    echo "         a comma or an unusual name); add them by hand as they appear in a PR's checks:"
     while IFS= read -r j; do echo "         $j"; done <<<"$ci_dynamic"
   fi
-  if [ -z "$ci_checks" ] && [ -z "$ci_dynamic" ]; then
+  if $ci_detected && [ -z "$ci_checks" ] && [ -z "$ci_dynamic" ]; then
     echo "WARNING: no workflow runs CI on pull requests, so the PRs of people are not tested at all."
     echo "         Add one (recommended) and list its jobs in ci-checks. Until then set test-command in"
     echo "         the implement and fix-review jobs of $caller."

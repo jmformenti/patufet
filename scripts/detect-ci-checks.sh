@@ -6,10 +6,15 @@
 #
 # Output, tab-separated, one per job:
 #   check    <check name>         the name GitHub gives the check
-#   dynamic  <file>: <job id>     a matrix, an expression in `name:` or a reusable
-#                                 workflow, whose name is only known at run time, or
-#                                 a name with a comma outside parentheses, which the
-#                                 comma-separated list of `ci-checks` would split
+#   dynamic  <file>: <job id>     a job that must be listed by hand: a matrix, an
+#                                 expression in `name:` or a reusable workflow (the
+#                                 name is only known at run time), a `name:` beyond
+#                                 this simple reading of YAML (escapes, block scalars,
+#                                 aliases...), or a name that the comma-separated list
+#                                 of `ci-checks` would not keep whole
+#
+# A wrong name makes every review wait until the timeout and miss that check's
+# result, so only the names read with certainty are emitted.
 #
 # patufet's own workflows and other Claude workflows are not CI: they are left out.
 set -euo pipefail
@@ -20,25 +25,41 @@ for file in .github/workflows/*.yml .github/workflows/*.yaml; do
   grep -q 'anthropics/claude-code-action' "$file" && continue
   awk -v file="$file" '
     function has_pr(s) { return s ~ /(^|[^a-z_])pull_request([^a-z_]|$)/ }
-    # A quoted value ends at its closing quote, whatever follows; only an unquoted
-    # one can have a comment
+    # The value of a `name:` line; sets unreadable when it is not a plain one-line
+    # string. A quoted value ends at its closing quote and may only be followed by a
+    # comment, which rules out the doubled quote of a single-quoted string.
     function name_value(s,   q, rest, i) {
       sub(/^name:[ \t]*/, "", s)
       q = substr(s, 1, 1)
       if (q == "\"" || q == "\047") {
         rest = substr(s, 2); i = index(rest, q)
-        return i ? substr(rest, 1, i - 1) : rest
+        if (!i || substr(rest, i + 1) !~ /^[ \t]*(#.*)?$/) unreadable = 1
+        s = substr(rest, 1, i - 1)
+        if (q == "\"" && s ~ /\\/) unreadable = 1
+        return s
       }
-      sub(/[ \t]+#.*$/, "", s); sub(/[ \t]+$/, "", s)
+      sub(/^#.*$/, "", s); sub(/[ \t]+#.*$/, "", s); sub(/[ \t]+$/, "", s)
+      if (s == "" || s ~ /^[>|&*!%@`{[]/) unreadable = 1
       return s
     }
-    function close_job(   bare) {
+    # The same rules as the list of wait-for-ci.sh: no comma outside parentheses,
+    # balanced parentheses, no space at the ends
+    function fits_the_list(s,   i, c, depth) {
+      if (s ~ /^[ \t]|[ \t]$/) return 0
+      for (i = 1; i <= length(s); i++) {
+        c = substr(s, i, 1)
+        if (c == "(") depth++
+        else if (c == ")") { if (!depth) return 0; depth-- }
+        else if (c == "," && !depth) return 0
+      }
+      return !depth
+    }
+    function close_job() {
       if (job != "") {
-        bare = name; gsub(/\([^)]*\)/, "", bare)
-        if (uses || matrix || name ~ /\$\{\{/ || bare ~ /,/) out = out "dynamic\t" file ": " job "\n"
+        if (uses || matrix || unreadable || name ~ /\$\{\{/ || !fits_the_list(name)) out = out "dynamic\t" file ": " job "\n"
         else out = out "check\t" (name != "" ? name : job) "\n"
       }
-      job = ""; name = ""; uses = 0; matrix = 0; child = 0
+      job = ""; name = ""; uses = 0; matrix = 0; child = 0; unreadable = 0; after_name = 0
     }
     /^[ \t]*(#|$)/ { next }
     {
@@ -56,7 +77,9 @@ for file in .github/workflows/*.yml .github/workflows/*.yaml; do
       if (!job_ind) job_ind = ind
       if (ind == job_ind) { close_job(); job = line; sub(/:.*$/, "", job); gsub(/["\047]/, "", job); next }
       if (!child) child = ind
-      if (ind == child && line ~ /^name:/) name = name_value(raw)
+      if (after_name && ind > child) unreadable = 1  # a value continued on the next line
+      after_name = 0
+      if (ind == child && line ~ /^name:/) { name = name_value(raw); after_name = 1 }
       if (ind == child && line ~ /^uses:/) uses = 1
       if (line ~ /^matrix:/) matrix = 1
     }

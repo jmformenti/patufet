@@ -4,9 +4,10 @@
 # not errors of this script: it exits 0 in all of them.
 #
 # Usage: wait-for-ci.sh <owner/repo> <sha> "<check names>" <timeout-minutes> <result-file>
-#   Names are separated by commas; a comma inside parentheses belongs to the name
-#   ("test (ubuntu, 21)", a matrix job). With several lines, each line is one name
-#   and commas mean nothing, for a name with any other comma.
+#   Names are separated by commas; a comma inside parentheses, nested or not, belongs
+#   to the name ("test (ubuntu, 21)", a matrix job). If the value has a newline, even
+#   a final one (`ci-checks: |`), each line is one name and commas mean nothing, for a
+#   name with any other comma.
 #   stdout: state=<success|failure|timeout|unavailable>, for $GITHUB_OUTPUT
 #   PATUFET_CI_POLL_SECONDS: seconds between polls (default 30)
 #
@@ -20,8 +21,15 @@ max_errors=5
 
 # shellcheck disable=SC2016  # $s is a jq variable
 wanted=$(jq -cn --arg s "$names" '
-  [$s | sub("\\s+$"; "")
-   | if contains("\n") then split("\n")[] else scan("(?:[^,(]|\\([^)]*\\))+") end
+  def split_top_level_commas:
+    reduce split("")[] as $c ({depth: 0, current: "", names: []};
+      if $c == "," and .depth == 0 then .names += [.current] | .current = ""
+      else
+        (if $c == "(" then .depth += 1 elif $c == ")" and .depth > 0 then .depth -= 1 else . end)
+        | .current += $c
+      end)
+    | .names + [.current];
+  [$s | if contains("\n") then split("\n")[] else split_top_level_commas[] end
    | sub("^\\s+"; "") | sub("\\s+$"; "") | select(. != "")]')
 
 # The check runs of the commit, slurped from the pages `gh api --paginate` prints

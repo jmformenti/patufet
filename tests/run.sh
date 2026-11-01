@@ -131,7 +131,11 @@ eq "the review's own check is not waited for" 2 "$(jq '.checks | length' "$work/
 eq "two lines are two names" "state=success" "$(wait_ci $'Frontend Build\ntest (ubuntu, 21)' 5)"
 eq "with several lines, a comma stays in the name" "state=success" "$(wait_ci $'Lint, style\nFrontend Build\n' 5)"
 eq "... and it is one check" 2 "$(jq '.checks | length' "$work/ci.json")"
-eq "a trailing newline does not change the separator" "Frontend Build" "$(wait_ci $'Frontend Build\n' 5 >/dev/null; jq -r '.checks[].name' "$work/ci.json")"
+eq "a single line with a final newline keeps its comma" "state=success" "$(wait_ci $'Lint, style\n' 5)"
+eq "... and it is one check" "Lint, style" "$(jq -r '.checks[].name' "$work/ci.json")"
+eq "nested parentheses stay in the name" "state=success" "$(wait_ci 'Frontend Build, test (Node.js (20), ubuntu)' 5)"
+eq "... and they are two checks" 2 "$(jq '.checks | length' "$work/ci.json")"
+eq "an unmatched parenthesis stays in the name" "state=success" "$(wait_ci 'Build (debug' 5)"
 eq "a failure among repeated names wins" "state=failure" "$(wait_ci 'Backend Tests' 5)"
 eq "job id from the details URL" 201 "$(jq -r '.checks[0].job_id' "$work/ci.json")"
 eq "timed_out is a failure; external CI has no job id" "state=failure" "$(wait_ci 'External CI' 5)"
@@ -254,7 +258,36 @@ printf 'on:\n  push:\n    branches: [main]\njobs:\n  deploy:\n    name: Deploy\n
 printf 'on:\n  pull_request_target:\njobs:\n  label:\n    name: Label\n' > "$ci/.github/workflows/labeler.yml"
 printf 'on:\n  pull_request:\njobs:\n  review:\n    name: Own\n' > "$ci/.github/workflows/patufet.yml"
 printf 'on:\n  pull_request:\njobs:\n  review:\n    name: Theirs\n    steps:\n      - uses: anthropics/claude-code-action@v1\n' > "$ci/.github/workflows/claude.yml"
+cat > "$ci/.github/workflows/odd.yml" <<'YAML'
+on: pull_request
+jobs:
+  doubled:
+    name: 'Bob''s tests'
+  escaped:
+    name: "say \"hi\""
+  block:
+    name: >-
+      Integration tests
+  alias:
+    name: *shared
+  unbalanced:
+    name: Build (debug
+  nested:
+    name: test (Node.js (20), ubuntu)
+  closing:
+    name: a) b
+  continued:
+    name: two
+      lines
+  empty:
+    name:
+YAML
 out=$(cd "$ci" && "$s/detect-ci-checks.sh")
+for job in doubled escaped block alias unbalanced closing continued empty; do
+  has "not read with certainty, so listed by hand: $job" $'dynamic\t.github/workflows/odd.yml: '"$job" "$out"
+done
+has "nested parentheses fit the list" $'check\ttest (Node.js (20), ubuntu)' "$out"
+for wrong in Bob 'say' '>-' '*shared' 'Build (debug' 'a) b' 'two'; do lacks "not written as a check: $wrong" $'check\t'"$wrong" "$out"; done
 has "job name" $'check\tBackend Tests' "$out"
 has "job id when it has no name" $'check\tfrontend' "$out"
 has "other indentation, # in a quoted name, inline trigger" $'check\tLint #1' "$out"
