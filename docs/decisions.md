@@ -79,3 +79,31 @@ patufet does, so fixes arrive without a release; tools fetched at run time
 they have broken runs before and do not follow semver. **Consequences.** A compromised major
 tag of those two actions would reach consumers; pin them by SHA in a fork if that risk
 matters more than the updates.
+
+## 10. The repository's CI is the source of truth; the review waits for it in `pull_request`
+
+**Context.** `test-command` copied each repository's CI by hand and drifted from it, and the
+review ran in parallel with CI, so a PR could get `pass` while its CI ended red. **Decision.**
+The review job polls the checks named in `ci-checks` and gives their result and failed logs to
+the same Claude review. `test-command` becomes optional. A new input instead of reinterpreting
+`ci-check-names`: that one holds free text, which would never match a check and would make every
+review wait until the timeout.
+
+**Rejected.** `workflow_run` on CI completion: it runs with secrets and a write token even for
+fork PRs ("pwn request"), cannot be tested before merge and does not show in the PR checks.
+Calling the CI as a reusable workflow from the caller: it couples CI to patufet, renames its
+checks and can run it twice. A separate bash path for red CI that labels without Claude: it needs
+the App token outside Claude and a new comment format for `fix-review`.
+
+**Consequences.**
+
+- The review job declares no `permissions:`, unlike the other reusable workflows. A called
+  workflow can only reduce what its caller grants, so declaring `actions: read` would ask more
+  than a caller that has not opted in grants, and leaving it out of a declared list would deny it
+  to the one that has. A caller with no `permissions:` on that job now gets the repository's
+  default token rather than a bounded one (and no `id-token`, so Claude fails). The template
+  declares them, and `tests/run.sh` checks both sides.
+- The logs are read per job (`actions/jobs/<id>/logs`), not with `gh run view --log-failed`, which
+  refuses while any other job of the run is still in progress.
+- The issue's `--required` idea was left out: `ci-checks` is explicit and works without branch
+  protection.

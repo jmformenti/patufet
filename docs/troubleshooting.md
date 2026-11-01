@@ -53,6 +53,26 @@ follow the output contract (often a `max-turns` exhaustion; the job summary show
 Reports of earlier cycles are deliberately ignored. Check the log; re-run by pushing an empty
 commit or re-labelling.
 
+**The review waits until `ci-wait-timeout-minutes` on every PR, and CI is already green.**
+A name in `ci-checks` matches no check: it is misspelled, it has the workflow prefix (`CI / Tests`
+instead of `Tests`), or its workflow did not run because of `paths:` / `branches:` filters. The
+warning in the `Wait for the CI checks` step lists the checks it saw. See
+[The CI-aware review](customization.md#the-ci-aware-review).
+
+**The report says that the CI state or logs could not be read.**
+The caller's `review` job lacks `checks: read` (state, on private repositories) or `actions: read`
+(logs). Add them to its `permissions:`.
+
+**`fail` with `needs-human-review` after a flaky CI failure.**
+The reviewer judged the failure unrelated to the diff, so `fix-review` pushes nothing for it and
+the flow stops there. Re-run the failed CI job and then the `review` job of that push.
+
+**A comment says that the reviewer returned `pass` although CI failed.**
+The workflow changed the verdict to `fail` with `GITHUB_TOKEN`, which cannot start `fix-review`.
+Remove and re-add the `fail` label by hand. The `pass` label did exist for a moment, so an e2e run
+may have started; ignore its result. If it passes, it says that the PR is not ready for merge,
+because the PR is no longer labelled `pass`.
+
 ## E2E
 
 **The job spent 27 minutes in "Install the Playwright browser".**

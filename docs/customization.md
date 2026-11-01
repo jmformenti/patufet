@@ -24,7 +24,7 @@ Common to `implement`, `review`, `fix-review`, `e2e`:
 | `claude-args-extra` | `''` | Anything else for `claude_args`. |
 | `show-full-output` | `true` | Full transcript in the job log. Needed to diagnose tool denials; may echo secrets printed by tools. |
 | `extra-instructions-file` | `.github/patufet/<stage>.md` | See layer 2. |
-| `timeout-minutes` | 45 (implement, fix-review) / 30 (review, e2e) | Job timeout. |
+| `timeout-minutes` | 45 (implement, fix-review) / 30 (review, e2e) | Job timeout. On `review` with `ci-checks`, it bounds the Claude step only: the wait has its own limit. |
 
 `implement`:
 
@@ -32,7 +32,8 @@ Common to `implement`, `review`, `fix-review`, `e2e`:
 |---|---|---|
 | `issue-number` | *(required)* | The caller passes `fromJSON(inputs.issue \|\| github.event.issue.number)`. |
 | `branch-prefix` | `agent/issue-` | Branch = prefix + issue number. Also used by review/e2e to find the linked issue. |
-| `test-command` | `''` | Multi-line shell that must pass before a PR is opened. Empty = the agent infers it from the repo docs (less reliable). The template writes it once and reuses it in `fix-review` with a YAML alias. |
+| `test-command` | `''` | Multi-line shell that must pass before a PR is opened. Not recommended when the repository has CI on PRs: empty = the agent reproduces the steps of the CI workflows, falling back to `AGENTS.md` / `CLAUDE.md` / README. Useful without CI on PRs. |
+| `java-version`, `node-version` | `''` | Set up that version on the runner (`actions/setup-java` with Temurin, `actions/setup-node`) so that it matches CI. Empty = what `ubuntu-latest` brings. Also on `fix-review`. |
 | `legacy-plan-heading` | `''` | Also accept plan comments that *contain* this heading (e.g. `## Pla d'implementació`) — migration aid, remove once old issues are done. Also on `review` and `e2e`. |
 | `label-ready`, `label-in-progress`, `label-to-refine`, `label-blocked` | `ready-to-implement`, `in-progress`, `to-refine`, `blocked` | See [Renaming the labels](#renaming-the-labels). |
 
@@ -40,7 +41,10 @@ Common to `implement`, `review`, `fix-review`, `e2e`:
 
 | Input | Default | Notes |
 |---|---|---|
-| `ci-check-names` | `''` | Human description of the CI jobs that already run tests/build on PRs, so the reviewer does not attempt to (it cannot) and knows where to look. |
+| `ci-checks` | `''` | Check names to wait for before reviewing, comma-separated. See [The CI-aware review](#the-ci-aware-review). Empty = no wait. |
+| `ci-wait-timeout-minutes` | `30` | Maximum wait for `ci-checks`. When it ends, the review runs and reports that CI has not finished. |
+| `human-reviewer` | `''` | Login (no `@`) mentioned when a CI failure needs a person: it is unrelated to the diff, or the workflow had to force `fail` over a `pass`. |
+| `ci-check-names` | `''` | **Deprecated**, use `ci-checks`. Free text telling the reviewer which CI jobs exist; it waits for nothing and is ignored when `ci-checks` is set. |
 | `branch-prefix` | `agent/issue-` | Same as implement, to find the linked issue. |
 | `allowed-bots` | `claude` | The implementer opens PRs as the `claude` bot; without this the action refuses bot-triggered events. Also on `fix-review` and `e2e`. |
 | `label-pass`, `label-warning`, `label-fail`, `label-needs-human-review` | `pass`, `warning`, `fail`, `needs-human-review` | Created if missing (existing labels are never modified). |
@@ -59,6 +63,59 @@ Output: `verdict` (`pass` / `warning` / `fail`).
 `e2e`: see [e2e.md](e2e.md) (`label-pass`, `label-warning`, `label-fail` as in review).
 
 `mention`: `model`, `claude-args-extra`, `timeout-minutes`.
+
+### The CI-aware review
+
+The repository's own CI is the single source of truth for build and test. With `ci-checks`,
+the review waits for those checks on the PR's head commit and reviews knowing their result:
+
+| CI | What the reviewer gets | Verdict |
+|---|---|---|
+| green | the names of the checks that passed | on the merits of the diff |
+| red | the failed checks and the end of their logs | always `fail`, with the cause explained inline where possible; `fix-review` applies it. If the workflow sees `pass` here, it forces `fail` |
+| red, unrelated to the diff (runner, network, flaky test) | same | still `fail`, but it asks for no code change, mentions `human-reviewer` and adds `needs-human-review`; `fix-review` then pushes nothing for it |
+| not confirmed at the timeout (still running, or no check with that name) | the state of each check | on the merits of the diff; the report says that it does not vouch for those checks |
+| unreadable (no permission) | that it could not be read | same; the report says which permission is missing |
+
+**The names** are those of the check runs: a job's `name:`, or its id if it has none. They
+are what the PR's checks box shows without the workflow prefix and the event (`Backend Tests`
+for `CI / Backend Tests (pull_request)`), and this lists them:
+
+```bash
+gh pr checks <pr> --json name --jq '.[].name'
+```
+
+They must match exactly. A comma inside parentheses belongs to the name, so a matrix job can be
+listed: `Lint, test (ubuntu, 21)` is two checks. For a name with any other comma, write one name
+per line (`ci-checks: |`); then only the lines separate names.
+
+**List only the checks that always run**, or that are skipped with a job-level `if:`
+(a skipped check counts as passed). A workflow left out by `paths:` or `branches:` filters
+creates no check at all, so the review would wait until the timeout on every PR that does not
+touch those paths. The same goes for a misspelled name; the job log then lists the checks it
+did see.
+
+**The caller's `review` job needs two more permissions**:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+  id-token: write
+  actions: read # the logs of failed CI jobs
+  checks: read # the state of CI (needed on private repositories)
+```
+
+Without `actions: read` the reviewer gets the failed names but no logs, and its report asks you
+to add it. Without `checks: read` on a private repository, the state of CI cannot be read.
+
+**Cost:** the review's runner idles while CI runs (billable minutes on private repositories),
+and a red CI still spends a Claude review, which in return gives `fix-review` an explanation
+instead of raw logs.
+
+Re-running a failed CI job does not start a new review, because no event reaches `patufet.yml`.
+After a flaky failure, re-run the CI job and then the `review` job of the same push.
 
 ### Renaming the labels
 
@@ -95,7 +152,7 @@ If you fork and edit `prompts/*.md`: `{{issue}}`, `{{pr}}`, `{{repository}}`, `{
 `{{language}}`, `{{plan}}`, `{{plan_section}}`, `{{test_command}}`, `{{ci_section}}`,
 `{{cycle}}`, `{{run}}`, `{{review_report}}`, `{{inline_comments}}`, `{{e2e_env}}`,
 `{{label_in_progress}}`, `{{label_to_refine}}`, `{{label_pass}}`, `{{label_warning}}`,
-`{{label_fail}}`, `{{label_needs_human_review}}`. Each workflow sets the ones its prompt
+`{{label_fail}}`, `{{label_needs_human_review}}`, `{{human_reviewer}}`. Each workflow sets the ones its prompt
 uses (`tests/run.sh` checks it). Unknown placeholders render empty and are reported in the
 job log.
 

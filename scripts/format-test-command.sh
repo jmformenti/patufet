@@ -9,5 +9,5 @@ set -euo pipefail
 if [ -n "${1:-}" ]; then
   printf '```bash\n%s\n```' "$1"
 else
-  printf '(No test command configured: run whatever the repository documents as its test suite and build, e.g. in CLAUDE.md or README.)'
+  printf '(No test command configured: reproduce locally the steps of the CI workflows in `.github/workflows/` that run on pull requests; if there are none, run what AGENTS.md, CLAUDE.md or README document as the tests and build. If a step cannot run on this runner (a missing tool or service), say so in the PR: CI checks the PR again. If no workflow runs on pull requests, nothing else will check it, so treat it as an open question.)'
 fi

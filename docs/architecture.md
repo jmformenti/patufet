@@ -5,7 +5,7 @@
 | File | Kind | Purpose |
 |---|---|---|
 | `.github/workflows/implement.yml` | reusable workflow | issue with approved plan → branch + PR |
-| `.github/workflows/review.yml` | reusable workflow | review a PR, post report, label verdict |
+| `.github/workflows/review.yml` | reusable workflow | wait for CI, review a PR, post report, label verdict |
 | `.github/workflows/fix-review.yml` | reusable workflow | apply the latest report to the PR branch, enforce the cycle limit |
 | `.github/workflows/e2e.yml` | reusable workflow | start the app via hooks, test live with Playwright MCP |
 | `.github/workflows/mention.yml` | reusable workflow | ad-hoc `@claude` interactions |
@@ -47,8 +47,9 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    trigger(["opened / push"]) --> review
+    trigger(["opened / push"]) --> wait["wait for CI<br/>(ci-checks)"]
     subgraph pr["pull request"]
+        wait --> review
         review --> pass
         review --> warning
         review --> fail
@@ -77,6 +78,11 @@ Rules that make it work:
   by hand in that case. No second model run is needed. When there is no structured output,
   only the marker of the comment posted by *this* run counts (`cycle=N` / `run=ID.ATTEMPT`), never
   an earlier one (`scripts/read-verdict.sh`).
+- With `ci-checks`, the review waits for those checks on the PR's head commit
+  (`scripts/wait-for-ci.sh`) and the reviewer gets their result and the end of the failed logs
+  (`scripts/ci-section.sh`). A red CI is a `fail`, and there is one review path for it: the
+  inline comments and the report go to `fix-review` like any other. If the structured verdict
+  is `pass` on a red CI, the verify step forces `fail`.
 - The review cycle counter is the number of trusted comments carrying
   `<!-- patufet:review`. `fix-review` refuses to run once it reaches `max-review-cycles`
   and labels `needs-human-review` instead.
@@ -104,7 +110,7 @@ Only comments by `OWNER` / `MEMBER` / `COLLABORATOR` authors or by the `claude[b
 |---|---|---|
 | implement | `patufet-implement-<repo>-<issue>` | no (a running implementation is never killed) |
 | fix-review | `patufet-implement-<repo>-pr-<pr>` | no |
-| review | `patufet-review-<repo>-<pr>` | yes (a review of a superseded diff must not label after a newer one) |
+| review | `patufet-review-<repo>-<pr>` | yes (a review of a superseded diff must not label after a newer one; a new push also ends the wait for the previous commit's CI) |
 | e2e | `patufet-e2e-<repo>-<pr>` | yes |
 
 Different issues / PRs run in parallel.

@@ -34,10 +34,10 @@ jobs:
     with:
       issue-number: ${{ fromJSON(inputs.issue || github.event.issue.number) }}
       language: en
-      # Shell that must pass before a PR is opened (leave empty to let the agent infer it).
-      # fix-review reuses it through the YAML alias *test-command.
-      test-command: &test-command |
-        echo "TODO: put your test/build commands here"
+      # Build and test: the agent reproduces your CI workflows, or else what AGENTS.md / CLAUDE.md
+      # say. Only without CI on pull requests, set the commands here and in fix-review:
+      # test-command: |
+      #   make test
 
   # every push to a non-draft PR → review + verdict label
   review:
@@ -51,11 +51,15 @@ jobs:
       pull-requests: write
       issues: read
       id-token: write
+      actions: read # the logs of failed CI jobs
+      checks: read # the state of CI (needed on private repositories)
     secrets: inherit
     with:
       language: en
-      # Names of the CI jobs that already run tests/build on PRs (so the reviewer does not try to)
-      ci-check-names: ""
+      human-reviewer: ""
+      # CI checks to wait for before reviewing, comma-separated: the job names, e.g.
+      # "Backend Tests, Frontend Build". Their result and failed logs go into the review.
+      ci-checks: ""
 
   # warning / fail → apply the review, push, which re-triggers review
   fix-review:
@@ -73,7 +77,6 @@ jobs:
       language: en
       max-review-cycles: 10
       human-reviewer: ""
-      test-command: *test-command
 
   # --- e2e (optional): remove this job if the app cannot run on a GitHub runner ---
   # pass → start the app with .github/patufet/e2e-up.sh and test it live

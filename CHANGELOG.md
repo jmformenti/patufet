@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- The review can wait for the repository's CI and include its result. New `review` inputs:
+  `ci-checks` (check names to wait for on the PR's head commit), `ci-wait-timeout-minutes`
+  (default 30) and `human-reviewer`. A red CI means `fail`, with its cause explained from the
+  failed logs; a failure unrelated to the diff asks for no code change and goes to the human
+  reviewer. **Opt-in:** without `ci-checks` nothing changes. To adopt it, the caller's `review`
+  job also needs `actions: read` and `checks: read`; see `docs/migration.md`.
+- The `review` reusable workflow no longer declares `permissions:` and takes those of the
+  caller's job. A caller with no `permissions:` on that job now fails at the Claude step instead
+  of at startup. The template and the docs have always declared them.
+- e2e only says "ready for merge" and mentions the reviewer if the PR is still labelled `pass`,
+  because the verdict can change while it runs.
+- `ci-check-names` is deprecated (kept as it was; ignored when `ci-checks` is set).
+- `test-command` is optional and no longer recommended when the repository has CI on PRs: when
+  empty, the agents reproduce the CI workflows, falling back to `AGENTS.md` / `CLAUDE.md`.
+- New `java-version` and `node-version` inputs on `implement` and `fix-review`, to match CI.
+- `bootstrap.sh` fills in `ci-checks` from the CI jobs it detects, grants the two permissions,
+  no longer generates a `test-command`, and warns when no workflow runs CI on pull requests.
+
 ## v1.1.0 — 2026-09-23
 
 First release under the name patufet (`v1.0.0` still carries the `agentic-sdlc` names).

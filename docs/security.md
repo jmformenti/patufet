@@ -25,12 +25,14 @@ Pull requests from forks never receive secrets, so they cannot run the Claude ac
 |---|---|---|
 | implement | the plan | latest issue comment with `<!-- patufet:plan -->` whose author is `OWNER` / `MEMBER` / `COLLABORATOR` (`scripts/find-plan.sh`). A plan comment by anyone else is ignored and the run is blocked. |
 | fix-review | the review report + inline comments | pre-fetched by the workflow from trusted authors only (collaborators, `claude[bot]`, `github-actions[bot]`); the prompt tells the agent to ignore any other source |
-| review, e2e | the PR diff, the issue and plan (e2e also the pages of the running app) | checkout with `contents: read`; tools limited to `gh pr view/diff/comment/edit` and `gh issue view` (no `gh api`, no `gh pr merge`); `gh pr edit` can still change the PR's labels, title, body, base branch and reviewers; plan filtered as above |
+| review, e2e | the PR diff, the issue and plan (review also the end of the failed CI logs; e2e also the pages of the running app) | checkout with `contents: read`; tools limited to `gh pr view/diff/comment/edit` and `gh issue view` (no `gh api`, no `gh pr merge`); `gh pr edit` can still change the PR's labels, title, body, base branch and reviewers; plan filtered as above |
 | mention | the comment | gated by the action's write-permission check |
 
-Untrusted text still reaches the agents: the **PR diff** itself (review, e2e) and the **issue
-body** (only through the plan you write, which you control). On a public repository, assume
-that a stranger can plant instructions in an issue body; the plan gate means you have read
+Untrusted text still reaches the agents: the **PR diff** itself (review, e2e), the **failed CI
+logs** (review; the code under review prints them, so they are no more trusted than the diff, and
+GitHub masks the secrets it knows in them) and the **issue body** (only through the plan you
+write, which you control). The reviewer's report then reaches `fix-review`, as it always has.
+On a public repository, assume that a stranger can plant instructions in an issue body; the plan gate means you have read
 it before anything with write access runs.
 
 ## Tokens
@@ -60,16 +62,21 @@ it before anything with write access runs.
 
 ## Permissions per job
 
-Declared in each reusable workflow and required in the caller (the caller cannot grant less).
+Declared in each reusable workflow and required in the caller (the caller cannot grant less),
+except on `review`, which declares none and takes those of the caller's job: its `actions` and
+`checks` are opt-in, and a declared list could not leave them optional
+([decision 10](decisions.md#10-the-repositorys-ci-is-the-source-of-truth-the-review-waits-for-it-in-pull_request)).
+So on that job the caller's list is the only limit: always declare it.
+
 They bound the steps that use `GITHUB_TOKEN`, not the agents (see [Tokens](#tokens)):
 
-| Workflow | contents | pull-requests | issues | id-token | actions |
-|---|---|---|---|---|---|
-| implement | write | write | write | write | – |
-| fix-review | write | write | read | write | – |
-| review | read | write | read | write | – |
-| e2e | read | write | read | write | – |
-| mention | read | read | read | write | read |
+| Workflow | contents | pull-requests | issues | id-token | actions | checks |
+|---|---|---|---|---|---|---|
+| implement | write | write | write | write | – | – |
+| fix-review | write | write | read | write | – | – |
+| review | read | write | read | write | read (with `ci-checks`) | read (with `ci-checks`) |
+| e2e | read | write | read | write | – | – |
+| mention | read | read | read | write | read | – |
 
 ## Residual risks, honestly
 

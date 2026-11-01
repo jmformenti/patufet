@@ -9,6 +9,23 @@ case "$1 ${2:-}" in
     case "$2" in
       */issues/*/comments) cat "${GH_STUB_ISSUE_COMMENTS:?}" ;;
       */pulls/*/comments)  cat "${GH_STUB_PR_COMMENTS:?}" ;;
+      */check-runs*)
+        # GH_STUB_CHECK_RUNS: colon-separated fixtures, one per poll; the last one repeats
+        if [ -n "${GH_STUB_CHECK_RUNS_ERROR:-}" ]; then echo "$GH_STUB_CHECK_RUNS_ERROR" >&2; exit 1; fi
+        IFS=: read -ra polls <<< "${GH_STUB_CHECK_RUNS:?}"
+        n=$(grep -c 'check-runs' "${GH_STUB_LOG:?}")
+        [ "$n" -le "${#polls[@]}" ] || n=${#polls[@]}
+        cat "${polls[$((n - 1))]}" ;;
+      */actions/jobs/*/logs)
+        if [ -n "${GH_STUB_JOB_LOG_ERROR:-}" ]; then echo "$GH_STUB_JOB_LOG_ERROR" >&2; exit 1; fi
+        # Like the real gh: recent versions need the flag for a log with colours,
+        # older ones (GH_STUB_OLD_GH) do not know it
+        if [ -n "${GH_STUB_OLD_GH:-}" ]; then
+          if [ "${3:-}" = --allow-escape-sequences ]; then echo "unknown flag: --allow-escape-sequences" >&2; exit 1; fi
+        elif [ "${3:-}" != --allow-escape-sequences ]; then
+          echo "the response contains terminal escape sequences; pass --allow-escape-sequences to output it anyway" >&2; exit 1
+        fi
+        cat "${GH_STUB_JOB_LOG:?}" ;;
       *) echo "gh stub: unexpected api path $2" >&2; exit 1 ;;
     esac ;;
   "pr view")     cat "${GH_STUB_PR_VIEW:?}" ;;

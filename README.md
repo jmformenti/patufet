@@ -80,8 +80,10 @@ bash <(curl -sSL https://raw.githubusercontent.com/jmformenti/patufet/v1/scripts
 
 Then:
 
-1. Fill in `test-command` (once, `fix-review` reuses it) and `ci-check-names` in
-   `.github/workflows/patufet.yml`.
+1. Check `ci-checks` in `.github/workflows/patufet.yml`: the bootstrap fills it in with the CI
+   jobs it detects, and the review waits for them. Without CI on pull requests, it warns you: add
+   a CI workflow, or set `test-command` in the `implement` and `fix-review` jobs. See
+   [The CI-aware review](docs/customization.md#the-ci-aware-review).
 2. Optionally write your project checklist in `.github/patufet/review.md` / `implement.md`.
 3. Commit and push.
 4. Open an issue, run `/plan-issue <n>` from Claude Code, approve the plan → the flow starts.
@@ -92,7 +94,7 @@ Then:
 |---|---|---|---|
 | Plan | you, `/plan-issue N` locally | Claude Code + you | comment `<!-- patufet:plan -->` + label `ready-to-implement` |
 | Implement | label `ready-to-implement` | `implement.yml` | branch `agent/issue-N`, tests green, PR with `Closes #N` — or draft PR + `to-refine` when it has a question |
-| Review | PR opened / pushed / ready | `review.yml` | inline comments, one report comment, label `pass` / `warning` / `fail` |
+| Review | PR opened / pushed / ready | `review.yml` | waits for CI (`ci-checks`), then inline comments, one report comment, label `pass` / `warning` / `fail`; a red CI is always `fail` |
 | Fix | label `warning` / `fail` | `fix-review.yml` | fixes pushed to the PR branch → review again (max `max-review-cycles`, then `needs-human-review`) |
 | E2E | label `pass` | `e2e.yml` (optional) | app started by your `e2e-up.sh`, tested live with Playwright; `fail` sends it back, success mentions the reviewer |
 | Merge | you | — | — |

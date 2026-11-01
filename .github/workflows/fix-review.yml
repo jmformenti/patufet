@@ -13,7 +13,15 @@ on:
         type: number
         default: 10
       test-command:
-        description: Shell command(s) that must pass before pushing (multi-line allowed). Empty = let the agent infer from the repository docs
+        description: Shell command(s) that must pass before pushing (multi-line allowed). Empty (recommended when the repository has CI on PRs) = the agent reproduces the CI workflow steps, or else what the repository docs say
+        type: string
+        default: ''
+      java-version:
+        description: Java version to set up on the runner (actions/setup-java, Temurin), to match CI. Empty = the runner's default
+        type: string
+        default: ''
+      node-version:
+        description: Node.js version to set up on the runner (actions/setup-node), to match CI. Empty = the runner's default
         type: string
         default: ''
       human-reviewer:
@@ -126,6 +134,22 @@ jobs:
       - name: Configure git credentials for push
         if: fromJSON(steps.cycles.outputs.count) < fromJSON(inputs.max-review-cycles)
         run: gh auth setup-git
+
+      - name: Set up Java
+        if: inputs.java-version != '' && fromJSON(steps.cycles.outputs.count) < fromJSON(inputs.max-review-cycles)
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java-version }}
+
+      - name: Set up Node.js
+        if: inputs.node-version != '' && fromJSON(steps.cycles.outputs.count) < fromJSON(inputs.max-review-cycles)
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          # Only selects Node.js. The automatic cache fails without a lockfile at the
+          # root, and setup-node advises against it in jobs with elevated privileges
+          package-manager-cache: false
 
       # The report and the inline comments are pre-fetched from trusted authors
       # only, so the agent never acts on instructions planted by a stranger

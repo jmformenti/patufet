@@ -7,8 +7,9 @@
 # What it does (idempotent, never modifies an existing file):
 #   1. copies the caller workflows, the prompt extension files, the e2e hooks
 #      (only with --with-e2e) and the /plan-issue command;
-#   2. fills in --reviewer / --language / --ref in the caller workflows it has
-#      just created (an existing caller is left exactly as it is);
+#   2. fills in --reviewer / --language / --ref and the detected CI jobs in the
+#      caller workflows it has just created (an existing caller is left exactly
+#      as it is);
 #   3. creates the 8 flow labels (existing ones are left untouched, with a warning);
 #   4. checks that CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY is set;
 #   5. warns about workflows that already use anthropics/claude-code-action.
@@ -68,6 +69,7 @@ script_dir=""
 if cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null; then script_dir="$(pwd)"; cd - >/dev/null; fi
 if [ -n "$script_dir" ] && [ -d "$script_dir/../templates" ]; then
   templates="$(cd "$script_dir/../templates" && pwd)"
+  detect_ci="$script_dir/detect-ci-checks.sh"
 else
   tmp=$(mktemp -d)
   trap 'rm -rf "$tmp"' EXIT
@@ -75,6 +77,7 @@ else
   gh api "repos/$TEMPLATE_REPO/tarball/$ref" > "$tmp/t.tar.gz"
   tar -xzf "$tmp/t.tar.gz" -C "$tmp" --strip-components=1
   templates="$tmp/templates"
+  detect_ci="$tmp/scripts/detect-ci-checks.sh"
 fi
 
 # --- existing automation ----------------------------------------------------
@@ -110,19 +113,44 @@ if $with_e2e; then
   copy .github/patufet/e2e-down.sh
 fi
 
+# --- CI on pull requests -----------------------------------------------------
+caller=.github/workflows/patufet.yml
+mention=.github/workflows/patufet-mention.yml
+ci_checks="" ci_dynamic="" ci_detected=false
+if was_created "$caller" && [ -f "$detect_ci" ]; then
+  ci_detected=true
+  # Filling in ci-checks is a convenience: a failure here must not stop the install
+  if ! detected=$(bash "$detect_ci"); then
+    echo "WARNING: could not detect the CI jobs; fill in ci-checks in $caller by hand."
+    ci_detected=false detected=""
+  fi
+  ci_checks=$(awk -F'\t' '$1 == "check" { s = s sep $2; sep = ", " } END { print s }' <<<"$detected")
+  ci_dynamic=$(awk -F'\t' '$1 == "dynamic" { print $2 }' <<<"$detected")
+  if [ -n "$ci_checks" ]; then echo "CI checks detected for ci-checks: $ci_checks"; fi
+  if [ -n "$ci_dynamic" ]; then
+    echo "WARNING: these CI jobs could not be listed in ci-checks (matrix, expression, reusable workflow,"
+    echo "         a comma or an unusual name); add them by hand as they appear in a PR's checks:"
+    while IFS= read -r j; do echo "         $j"; done <<<"$ci_dynamic"
+  fi
+  if $ci_detected && [ -z "$ci_checks" ] && [ -z "$ci_dynamic" ]; then
+    echo "WARNING: no workflow runs CI on pull requests, so the PRs of people are not tested at all."
+    echo "         Add one (recommended) and list its jobs in ci-checks. Until then set test-command in"
+    echo "         the implement and fix-review jobs of $caller."
+  fi
+fi
+
 # --- fill in the callers ----------------------------------------------------
 # Only the files created above: an existing caller may hold the owner's edits
-# (test-command, the e2e job, a pinned version) and is never touched.
+# (ci-checks, the e2e job, a pinned version) and is never touched.
 sed_value() { printf '%s' "$1" | sed -e 's/[\\|&]/\\&/g'; }
 # A YAML double-quoted string: free text such as "Catalan: Valencian" stays valid YAML
 yaml_str() { local v="${1//\\/\\\\}"; v="${v//\"/\\\"}"; printf '"%s"' "$v"; }
-caller=.github/workflows/patufet.yml
-mention=.github/workflows/patufet-mention.yml
 if ! $dry_run && was_created "$caller"; then
   sed -i.bak \
     -e "s|@v1$|@$(sed_value "$ref")|" \
     -e "s|language: en$|language: $(sed_value "$(yaml_str "$language")")|" \
     -e "s|human-reviewer: \"\"$|human-reviewer: $(sed_value "$(yaml_str "$reviewer")")|" \
+    -e "s|ci-checks: \"\"$|ci-checks: $(sed_value "$(yaml_str "$ci_checks")")|" \
     "$caller"
   if ! $with_e2e; then
     sed -i.bak '/# --- e2e (optional)/,/# --- end e2e ---/d' "$caller"
@@ -169,8 +197,14 @@ else
   echo "         Run 'claude setup-token' locally, then: gh secret set CLAUDE_CODE_OAUTH_TOKEN"
 fi
 
-steps=("Edit $caller: fill in test-command and ci-check-names."
-       "Edit .github/patufet/*.md with your project's checklist (or delete them).")
+steps=()
+if $ci_detected && [ -n "$ci_checks$ci_dynamic" ]; then
+  steps+=("Check ci-checks in $caller: only the jobs that must be green to merge.")
+elif $ci_detected; then
+  steps+=("Add a CI workflow for pull requests and list its jobs in ci-checks of $caller, or set test-command there.")
+fi
+steps+=("Check that AGENTS.md or CLAUDE.md describe the build and test commands correctly: the agents rely on them."
+        "Edit .github/patufet/*.md with your project's checklist (or delete them).")
 $with_e2e && steps+=("Adapt .github/patufet/e2e-up.sh / e2e-down.sh to start your app.")
 steps+=("Install the Claude GitHub App on the repository if not done: https://github.com/apps/claude"
         "Commit, then open an issue and run /plan-issue <n> from Claude Code.")

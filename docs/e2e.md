@@ -62,8 +62,9 @@ the marker of *this* run's comment by a trusted author) and then:
 - `fail` → Claude has relabelled the PR `fail` with the App token, which re-triggers
   `fix-review` (the step repairs the label if Claude did not);
 - `pass` → posts "ready for human review" mentioning `human-reviewer`, if the PR is still at
-  the tested commit; otherwise it only notes that the newer commits go through review and
-  e2e again.
+  the tested commit and still labelled `pass`. If it has moved on, it only notes that the newer
+  commits go through review and e2e again; if the label has changed, that the PR is not ready
+  for merge.
 
 If the Claude step fails or yields no verdict, the job fails and a warning comment is posted;
 labels are left untouched.
