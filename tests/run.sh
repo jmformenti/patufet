@@ -366,6 +366,17 @@ mkdir -p "$repo/.github/workflows"
 cat "$work/bootstrap.out"
 failures=$((failures + $(grep -c '^FAIL' "$work/bootstrap.out")))
 
+echo "# verdict labels and report format"
+line_of() { grep -n -m1 -F -- "$1" "$wf_review" | cut -d: -f1; }
+cleared=$(line_of 'name: Remove the previous verdict label'); reviewed=$(line_of 'name: Run Claude Code review')
+if [ -n "$cleared" ] && [ "$cleared" -lt "$reviewed" ]; then pass "review.yml removes the verdict labels before Claude runs"; else fail "review.yml removes the verdict labels before Claude runs"; fi
+lacks "the reviewer does not remove verdict labels" '--remove-label "{{label_pass}}"' "$(cat "$root/prompts/review.md")"
+has "the reviewer adds one label" '--add-label "LABEL"' "$(cat "$root/prompts/review.md")"
+has "e2e relabels in one call" '--remove-label "{{label_warning}}" --add-label "{{label_fail}}"' "$(cat "$root/prompts/e2e.md")"
+for stage in review e2e; do
+  has "$stage: the report has no line starting with #" 'No line of this comment may start with `#`' "$(cat "$root/prompts/$stage.md")"
+done
+
 echo "# prompts ↔ workflows ↔ docs"
 for stage in implement review fix-review e2e; do
   wf="$root/.github/workflows/$stage.yml"

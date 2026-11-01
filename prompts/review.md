@@ -38,19 +38,16 @@ Review the whole diff looking at:
    problem, stating its severity.
 2. One single summary comment on the PR (`gh pr comment {{pr}}`) whose **first line is exactly**
    `<!-- patufet:review cycle={{cycle}} verdict=VERDICT -->` where VERDICT is `pass`,
-   `warning` or `fail`, followed by a heading and the report: overall verdict, conformance with
-   the issue plan (if any) and the list of problems found (or a statement that everything is
-   correct).
-3. Label the PR with the verdict. In this repository the verdict labels are named
-   `{{label_pass}}` (pass), `{{label_warning}}` (warning) and `{{label_fail}}` (fail); they are
-   mutually exclusive. Always do it in **two separate `gh pr edit` calls**, in this order,
-   even if you believe the verdict has not changed since the previous cycle:
-   1. `gh pr edit {{pr}} --remove-label "{{label_pass}}" --remove-label "{{label_warning}}" --remove-label "{{label_fail}}"`
-      (safe and idempotent even when none of them is present);
-   2. `gh pr edit {{pr}} --add-label "LABEL"` where LABEL is the label of your verdict (add
-      `--remove-label "{{label_needs_human_review}}"` when the verdict is `pass`).
-   They must be independent calls: GitHub only emits the `labeled` event that starts the
-   next stage when the label is really removed and added again.
+   `warning` or `fail`, followed by a title in bold (`**Review: ...**`) and the report: overall
+   verdict, conformance with the issue plan (if any) and the list of problems found (or a
+   statement that everything is correct). **No line of this comment may start with `#`**: the
+   tool rejects such a command, so use bold text instead of Markdown headings.
+3. After posting the report, label the PR with the verdict in **one single call**:
+   `gh pr edit {{pr}} --add-label "LABEL"`, where LABEL is `{{label_pass}}` for pass,
+   `{{label_warning}}` for warning and `{{label_fail}}` for fail (add
+   `--remove-label "{{label_needs_human_review}}"` to that call when the verdict is `pass`). The
+   workflow has already removed the previous verdict label, so do not remove any. Adding the
+   label starts the next stage: add it once.
 4. Finish by returning the structured result `{"verdict": "...", "summary": "..."}` with the
    same verdict as the marker and the label.
 
