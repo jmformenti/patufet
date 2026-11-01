@@ -17,7 +17,15 @@ on:
         type: string
         default: agent/issue-
       test-command:
-        description: Shell command(s) that must pass before a PR is opened (multi-line allowed). Empty = let the agent infer from the repository docs
+        description: Shell command(s) that must pass before a PR is opened (multi-line allowed). Empty (recommended when the repository has CI on PRs) = the agent reproduces the CI workflow steps, or else what the repository docs say
+        type: string
+        default: ''
+      java-version:
+        description: Java version to set up on the runner (actions/setup-java, Temurin), to match CI. Empty = the runner's default
+        type: string
+        default: ''
+      node-version:
+        description: Node.js version to set up on the runner (actions/setup-node), to match CI. Empty = the runner's default
         type: string
         default: ''
       extra-instructions-file:
@@ -140,6 +148,19 @@ jobs:
       # persist-credentials is false on checkout; git pushes use gh as credential helper
       - name: Configure git credentials for push
         run: gh auth setup-git
+
+      - name: Set up Java
+        if: inputs.java-version != ''
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java-version }}
+
+      - name: Set up Node.js
+        if: inputs.node-version != ''
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
 
       - name: Render the prompt
         id: prompt

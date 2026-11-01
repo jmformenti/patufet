@@ -14,7 +14,19 @@ on:
         type: string
         default: .github/patufet/review.md
       ci-check-names:
-        description: Human description of the CI checks that already run tests/build on the PR (so the reviewer does not try to)
+        description: Deprecated, use ci-checks. Human description of the CI checks that already run tests/build on the PR (so the reviewer does not try to). Ignored when ci-checks is set
+        type: string
+        default: ''
+      ci-checks:
+        description: Names of the CI checks to wait for before reviewing, separated by commas (a job's check name, e.g. "Backend Tests, Frontend Build"). Their result and failed logs reach the reviewer. Empty = no wait
+        type: string
+        default: ''
+      ci-wait-timeout-minutes:
+        description: Maximum wait for ci-checks. When it ends the review runs anyway and reports that CI has not finished
+        type: number
+        default: 30
+      human-reviewer:
+        description: GitHub login (without @) to mention when a CI failure needs a person (unrelated to the diff, or the workflow had to force the verdict)
         type: string
         default: ''
       branch-prefix:
@@ -70,7 +82,7 @@ on:
         type: string
         default: ''
       timeout-minutes:
-        description: Job timeout
+        description: Timeout of the review, not counting the wait for ci-checks
         type: number
         default: 30
     secrets:
@@ -86,16 +98,20 @@ on:
 jobs:
   review:
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ inputs.timeout-minutes }}
-    # A review of a superseded diff must never label after a newer one
+    # Expressions have no arithmetic to add the wait to the review: with ci-checks
+    # the wait and the Claude step are bounded one by one, and this is only GitHub's
+    # own limit for a job
+    timeout-minutes: ${{ inputs.ci-checks != '' && 360 || inputs.timeout-minutes }}
+    # A review of a superseded diff must never label after a newer one. This also
+    # cancels a review still waiting for the CI of the previous push.
     concurrency:
       group: patufet-review-${{ github.repository }}-${{ github.event.pull_request.number }}
       cancel-in-progress: true
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: read
-      id-token: write
+    # No `permissions:` on purpose, the job takes those of the caller's job: declaring
+    # `actions: read` and `checks: read` here would ask for more than a caller that
+    # has not opted in grants, and leaving them out would deny them to the one that has.
+    # Needs: contents read, pull-requests write, issues read, id-token write, and with
+    # ci-checks actions read and checks read (docs/security.md, decision 10).
     outputs:
       verdict: ${{ steps.verdict.outputs.verdict }}
     env:
@@ -140,6 +156,17 @@ jobs:
       - name: Ensure the verdict labels exist
         run: '"$TPL_DIR/scripts/ensure-labels.sh" "$LABEL_PASS=0E8A16" "$LABEL_WARNING=FBCA04" "$LABEL_FAIL=B60205" "$LABEL_NHR=5319E7"'
 
+      # A fork PR has no secrets, so its review fails at the Claude step: no point
+      # in idling first
+      - name: Wait for the CI checks
+        id: ci
+        if: inputs.ci-checks != '' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CI_CHECKS: ${{ inputs.ci-checks }}
+          CI_WAIT_MINUTES: ${{ inputs.ci-wait-timeout-minutes }}
+        run: '"$TPL_DIR/scripts/wait-for-ci.sh" "$GITHUB_REPOSITORY" "$HEAD_SHA" "$CI_CHECKS" "$CI_WAIT_MINUTES" "$RUNNER_TEMP/ci-result.json" >> "$GITHUB_OUTPUT"'
+
       - name: Render the prompt
         id: prompt
         env:
@@ -151,16 +178,12 @@ jobs:
           TPL_label_warning: ${{ inputs.label-warning }}
           TPL_label_fail: ${{ inputs.label-fail }}
           TPL_label_needs_human_review: ${{ inputs.label-needs-human-review }}
-          CI_CHECKS: ${{ inputs.ci-check-names }}
+          TPL_human_reviewer: ${{ inputs.human-reviewer != '' && format('@{0}', inputs.human-reviewer) || 'none is configured, so mention nobody' }}
+          CI_CHECK_NAMES: ${{ inputs.ci-check-names }}
           EXTRA_FILE: ${{ inputs.extra-instructions-file }}
         run: |
           TPL_plan_section="$(cat "$RUNNER_TEMP/plan_section.md")"; export TPL_plan_section
-          if [ -n "$CI_CHECKS" ]; then
-            TPL_ci_section="You cannot run tests or builds. The following CI checks already do it on every PR and their result is visible in the PR checks: $CI_CHECKS. Base your assessment of tests on reading the diff only."
-          else
-            TPL_ci_section="You cannot run tests or builds; base your assessment of tests on reading the diff only."
-          fi
-          export TPL_ci_section
+          TPL_ci_section="$("$TPL_DIR/scripts/ci-section.sh" "$GITHUB_REPOSITORY" "$RUNNER_TEMP/ci-result.json" "$CI_CHECK_NAMES")"; export TPL_ci_section
           "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/review.md" "$EXTRA_FILE" \
             | "$TPL_DIR/scripts/github-output.sh" text
 
@@ -169,6 +192,7 @@ jobs:
       # before they report back
       - name: Run Claude Code review
         id: claude
+        timeout-minutes: ${{ inputs.timeout-minutes }}
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -196,12 +220,14 @@ jobs:
           STRUCTURED: ${{ steps.claude.outputs.structured_output }}
           CLAUDE_EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
           CYCLE: ${{ steps.context.outputs.cycle }}
+          CI_STATE: ${{ steps.ci.outputs.state }}
+          REVIEWER: ${{ inputs.human-reviewer }}
         run: |
           # No execution file = the action skipped itself before running Claude
           # (e.g. its workflow-file validation on the PR that first adds the
-          # workflow). Nothing to label; just fail visibly.
+          # workflow) or the step timed out. Nothing to label; just fail visibly.
           if [ -z "$CLAUDE_EXECUTION_FILE" ]; then
-            echo "::error::The Claude action did not run (see its step log: workflow validation, missing token...). No verdict."
+            echo "::error::The Claude action did not finish (see its step log: workflow validation, missing token, timeout...). No verdict."
             exit 1
           fi
           verdict=$("$TPL_DIR/scripts/read-verdict.sh" review "$GITHUB_REPOSITORY" "$PR_NUMBER" "cycle=$CYCLE")
@@ -209,6 +235,16 @@ jobs:
             gh pr edit "$PR_NUMBER" --add-label "$LABEL_NHR"
             gh pr comment "$PR_NUMBER" --body "⚠️ patufet: review cycle $CYCLE produced no verdict. Manual review needed. See ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             exit 1
+          fi
+          # A red CI is never a pass, whatever the model answered
+          if [ "$CI_STATE" = failure ] && [ "$verdict" = pass ]; then
+            echo "::warning::The reviewer returned 'pass' on a failed CI; forcing 'fail' with GITHUB_TOKEN — fix-review will NOT be triggered automatically"
+            "$TPL_DIR/scripts/set-verdict-label.sh" "$PR_NUMBER" fail "$LABEL_PASS" "$LABEL_WARNING" "$LABEL_FAIL" "$LABEL_NHR"
+            mention=""
+            [ -n "$REVIEWER" ] && mention=" @$REVIEWER"
+            gh pr comment "$PR_NUMBER" --body "⚠️ patufet: the reviewer returned \`pass\` although CI failed, so the verdict was changed to \`fail\` by the workflow, which cannot trigger the next stage. If an e2e run started on the \`pass\` label, do not rely on it. Remove and re-add the \`$LABEL_FAIL\` label by hand to continue.$mention"
+            echo "verdict=fail" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
           case "$verdict" in
@@ -229,4 +265,5 @@ jobs:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
           CYCLE: ${{ steps.context.outputs.cycle }}
           VERDICT: ${{ steps.verdict.outputs.verdict }}
-        run: '"$TPL_DIR/scripts/run-summary.sh" review "$EXECUTION_FILE" "PR: #$PR_NUMBER" "Cycle: $CYCLE" "Verdict: ${VERDICT:-none}"'
+          CI_STATE: ${{ steps.ci.outputs.state }}
+        run: '"$TPL_DIR/scripts/run-summary.sh" review "$EXECUTION_FILE" "PR: #$PR_NUMBER" "Cycle: $CYCLE" "CI: ${CI_STATE:-not waited for}" "Verdict: ${VERDICT:-none}"'

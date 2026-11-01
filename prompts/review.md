@@ -22,6 +22,16 @@ Review the whole diff looking at:
 - Tests: new logic without coverage must be reported (by reading, not by running anything).
 - Security: authorization checks, secrets handling, input validation.
 
+## If the Scope section above says that CI failed
+
+- Find the cause from the diff and the logs. When it is in the diff, explain it in an inline
+  comment on the line responsible, with the fix you suggest; otherwise explain it in the report.
+- The verdict must be `fail`.
+- If the failure is clearly unrelated to the diff (runner, network, an outage, a flaky test the
+  diff does not touch), say so in the report and do not ask for code changes. Also mention the
+  human reviewer in the report ({{human_reviewer}}) and add the label
+  `{{label_needs_human_review}}`. The verdict is still `fail`.
+
 ## Output
 
 1. One inline comment (`mcp__github_inline_comment__create_inline_comment`) per concrete
@@ -45,9 +55,11 @@ Review the whole diff looking at:
    same verdict as the marker and the label.
 
 Verdict scale:
-- `pass`: mergeable as is (or only trivial nits that do not need another cycle).
+- `pass`: mergeable as is (or only trivial nits that do not need another cycle). Never when CI
+  failed.
 - `warning`: must be fixed before merge but nothing is fundamentally wrong.
 - `fail`: bugs, missing plan items, security issues or broken conventions.
 
 Do not change any code, do not mention anyone, and do not touch any label other than the
-three verdict ones (plus `{{label_needs_human_review}}` on `pass`).
+three verdict ones (plus `{{label_needs_human_review}}` on `pass`). The only exception to both
+is a CI failure unrelated to the diff, as described above.
