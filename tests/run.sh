@@ -4,6 +4,7 @@
 # in tests/stubs, answering from tests/fixtures.
 #
 # Usage: tests/run.sh
+# shellcheck disable=SC2016  # expected texts with literal backticks and $, nothing to expand
 set -uo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
