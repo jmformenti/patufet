@@ -157,8 +157,12 @@ result success '[{"name":"Backend Tests","state":"success"}]'
 out=$("$s/ci-section.sh" octo/app "$work/r.json" 'ignored prose')
 has "success names the checks" 'these checks passed: `Backend Tests`' "$out"
 lacks "ci-checks wins over ci-check-names" "ignored prose" "$out"
-result timeout '[{"name":"Backend Tests","state":"pending"}]'
-has "timeout says CI has not finished" "CI had not finished" "$("$s/ci-section.sh" octo/app "$work/r.json" '')"
+result timeout '[{"name":"Backend Tests","state":"pending"},{"name":"Testz","state":"missing"},{"name":"Lint","state":"success"}]'
+out=$("$s/ci-section.sh" octo/app "$work/r.json" '')
+has "timeout says CI could not be confirmed" "CI could not be confirmed" "$out"
+has "timeout: a pending check is still running" '`Backend Tests`: still running' "$out"
+has "timeout: a missing check is not said to be running" '`Testz`: no check with this name exists' "$out"
+has "timeout: a finished check keeps its state" '`Lint`: success' "$out"
 result unavailable '[{"name":"Backend Tests","state":"unknown"}]'
 has "unavailable hints at the permission" "checks: read" "$("$s/ci-section.sh" octo/app "$work/r.json" '')"
 result failure "$failed"

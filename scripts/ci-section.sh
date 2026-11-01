@@ -54,11 +54,14 @@ case "$state" in
     echo "You cannot run tests or builds, but CI did on commit \`$sha\` and these checks passed: $listed. Do not repeat them; assess test coverage by reading the diff."
     ;;
   timeout)
-    echo "You cannot run tests or builds. **CI had not finished** on commit \`$sha\` when the wait ended. State of the checks:"
+    echo "You cannot run tests or builds. **CI could not be confirmed** on commit \`$sha\` when the wait ended. State of the checks:"
     echo
-    jq -r '.checks[] | "- `\(.name)`: \(.state)"' "$result"
+    jq -r '.checks[] | "- `\(.name)`: \(
+      if .state == "pending" then "still running"
+      elif .state == "missing" then "no check with this name exists on this commit (the name in `ci-checks` may be wrong, or its workflow did not run)"
+      else .state end)"' "$result"
     echo
-    echo "Say in your report that CI had not finished, so your verdict does not vouch for it. Base your assessment of tests on reading the diff only."
+    echo "Say in your report which checks could not be confirmed and why, so your verdict does not vouch for them. Base your assessment of tests on reading the diff only."
     ;;
   unavailable)
     echo "You cannot run tests or builds, and **the state of CI could not be read** on commit \`$sha\` (expected checks: $listed). Say so in your report, adding this hint for the repository owner: the \`review\` job of the caller workflow needs \`checks: read\` in its \`permissions:\`. Base your assessment of tests on reading the diff only."

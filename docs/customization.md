@@ -74,7 +74,7 @@ the review waits for those checks on the PR's head commit and reviews knowing th
 | green | the names of the checks that passed | on the merits of the diff |
 | red | the failed checks and the end of their logs | always `fail`, with the cause explained inline where possible; `fix-review` applies it. If the workflow sees `pass` here, it forces `fail` |
 | red, unrelated to the diff (runner, network, flaky test) | same | still `fail`, but it asks for no code change, mentions `human-reviewer` and adds `needs-human-review`; `fix-review` then pushes nothing for it |
-| not finished at the timeout | the state of each check | on the merits of the diff; the report says that it does not vouch for CI |
+| not confirmed at the timeout (still running, or no check with that name) | the state of each check | on the merits of the diff; the report says that it does not vouch for those checks |
 | unreadable (no permission) | that it could not be read | same; the report says which permission is missing |
 
 **The names** are those of the check runs: a job's `name:`, or its id if it has none. They
