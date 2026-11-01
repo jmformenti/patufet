@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.2.0 — 2026-11-01
+
 - The review can wait for the repository's CI and include its result. New `review` inputs:
   `ci-checks` (check names to wait for on the PR's head commit), `ci-wait-timeout-minutes`
   (default 30) and `human-reviewer`. A red CI means `fail`, with its cause explained from the
