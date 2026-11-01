@@ -161,6 +161,9 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: ${{ inputs.node-version }}
+          # Only selects Node.js. The automatic cache fails without a lockfile at the
+          # root, and setup-node advises against it in jobs with elevated privileges
+          package-manager-cache: false
 
       - name: Render the prompt
         id: prompt

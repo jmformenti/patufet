@@ -86,7 +86,8 @@ gh pr checks <pr> --json name --jq '.[].name'
 ```
 
 They must match exactly. A comma inside parentheses belongs to the name, so a matrix job can be
-listed: `Lint, test (ubuntu, 21)` is two checks.
+listed: `Lint, test (ubuntu, 21)` is two checks. For a name with any other comma, write one name
+per line (`ci-checks: |`); then only the lines separate names.
 
 **List only the checks that always run**, or that are skipped with a job-level `if:`
 (a skipped check counts as passed). A workflow left out by `paths:` or `branches:` filters

@@ -4,8 +4,9 @@
 # not errors of this script: it exits 0 in all of them.
 #
 # Usage: wait-for-ci.sh <owner/repo> <sha> "<check names>" <timeout-minutes> <result-file>
-#   Names are separated by commas or newlines; a comma inside parentheses belongs
-#   to the name ("test (ubuntu, 21)", a matrix job).
+#   Names are separated by commas; a comma inside parentheses belongs to the name
+#   ("test (ubuntu, 21)", a matrix job). With several lines, each line is one name
+#   and commas mean nothing, for a name with any other comma.
 #   stdout: state=<success|failure|timeout|unavailable>, for $GITHUB_OUTPUT
 #   PATUFET_CI_POLL_SECONDS: seconds between polls (default 30)
 #
@@ -19,7 +20,9 @@ max_errors=5
 
 # shellcheck disable=SC2016  # $s is a jq variable
 wanted=$(jq -cn --arg s "$names" '
-  [$s | scan("(?:[^,\n(]|\\([^)]*\\))+") | sub("^\\s+"; "") | sub("\\s+$"; "") | select(. != "")]')
+  [$s | sub("\\s+$"; "")
+   | if contains("\n") then split("\n")[] else scan("(?:[^,(]|\\([^)]*\\))+") end
+   | sub("^\\s+"; "") | sub("\\s+$"; "") | select(. != "")]')
 
 # The check runs of the commit, slurped from the pages `gh api --paginate` prints
 fetch_runs() {

@@ -129,6 +129,9 @@ eq "skipped counts as passed" success "$(ci_state 'Frontend Build')"
 eq "a comma inside parentheses belongs to the name" success "$(ci_state 'test (ubuntu, 21)')"
 eq "the review's own check is not waited for" 2 "$(jq '.checks | length' "$work/ci.json")"
 eq "two lines are two names" "state=success" "$(wait_ci $'Frontend Build\ntest (ubuntu, 21)' 5)"
+eq "with several lines, a comma stays in the name" "state=success" "$(wait_ci $'Lint, style\nFrontend Build\n' 5)"
+eq "... and it is one check" 2 "$(jq '.checks | length' "$work/ci.json")"
+eq "a trailing newline does not change the separator" "Frontend Build" "$(wait_ci $'Frontend Build\n' 5 >/dev/null; jq -r '.checks[].name' "$work/ci.json")"
 eq "a failure among repeated names wins" "state=failure" "$(wait_ci 'Backend Tests' 5)"
 eq "job id from the details URL" 201 "$(jq -r '.checks[0].job_id' "$work/ci.json")"
 eq "timed_out is a failure; external CI has no job id" "state=failure" "$(wait_ci 'External CI' 5)"
@@ -245,7 +248,8 @@ jobs:
   shared:
     uses: ./.github/workflows/shared.yml
 YAML
-printf 'on: [push, pull_request]\njobs:\n    "lint":\n        name: "Lint, style"\n        runs-on: x\n' > "$ci/.github/workflows/lint.yaml"
+printf 'on: [push, pull_request]\njobs:\n    "lint":\n        name: "Lint #1" # a comment\n        runs-on: x\n' > "$ci/.github/workflows/lint.yaml"
+printf 'on: [pull_request]\njobs:\n  style:\n    name: Lint, style\n  sized:\n    name: "test (ubuntu, 21)"\n  plain:\n    name: Unquoted #comment\n' > "$ci/.github/workflows/style.yml"
 printf 'on:\n  push:\n    branches: [main]\njobs:\n  deploy:\n    name: Deploy\n' > "$ci/.github/workflows/deploy.yml"
 printf 'on:\n  pull_request_target:\njobs:\n  label:\n    name: Label\n' > "$ci/.github/workflows/labeler.yml"
 printf 'on:\n  pull_request:\njobs:\n  review:\n    name: Own\n' > "$ci/.github/workflows/patufet.yml"
@@ -253,7 +257,10 @@ printf 'on:\n  pull_request:\njobs:\n  review:\n    name: Theirs\n    steps:\n  
 out=$(cd "$ci" && "$s/detect-ci-checks.sh")
 has "job name" $'check\tBackend Tests' "$out"
 has "job id when it has no name" $'check\tfrontend' "$out"
-has "other indentation, quoted name, inline trigger" $'check\tLint, style' "$out"
+has "other indentation, # in a quoted name, inline trigger" $'check\tLint #1' "$out"
+has "a comma outside parentheses cannot be listed" $'dynamic\t.github/workflows/style.yml: style' "$out"
+has "a comma inside parentheses can" $'check\ttest (ubuntu, 21)' "$out"
+eq "an unquoted name ends at its comment" $'check\tUnquoted' "$(grep -F Unquoted <<< "$out")"
 has "matrix is dynamic" $'dynamic\t.github/workflows/ci.yml: matrix' "$out"
 has "reusable workflow is dynamic" $'dynamic\t.github/workflows/ci.yml: shared' "$out"
 for no in "Not a job name" Deploy Label Own Theirs; do lacks "not a PR check: $no" "$no" "$out"; done
@@ -314,7 +321,7 @@ mkdir -p "$repo/.github/workflows"
   mkdir -p .github/workflows
   cp "$ci/.github/workflows/ci.yml" "$ci/.github/workflows/lint.yaml" .github/workflows/
   "$s/bootstrap.sh" --reviewer ana > "$work/b3.log" 2>&1 || echo "FAIL bootstrap with CI exited non-zero: $(cat "$work/b3.log")"
-  grep -qxF '      ci-checks: "Backend Tests, frontend, Lint, style"' "$caller" \
+  grep -qxF '      ci-checks: "Backend Tests, frontend, Lint #1"' "$caller" \
     && echo "ok   detected CI jobs written to ci-checks" || echo "FAIL detected CI jobs written to ci-checks: $(grep ci-checks: "$caller")"
   grep -q 'ci.yml: matrix' "$work/b3.log" && echo "ok   jobs with a run-time name warned about" || echo "FAIL jobs with a run-time name warned about"
   grep -q 'no workflow runs CI' "$work/b3.log" && echo "FAIL CI present: no warning" || echo "ok   CI present: no warning"

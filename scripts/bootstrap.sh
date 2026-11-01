@@ -124,8 +124,8 @@ if was_created "$caller" && [ -f "$detect_ci" ]; then
   ci_dynamic=$(awk -F'\t' '$1 == "dynamic" { print $2 }' <<<"$detected")
   if [ -n "$ci_checks" ]; then echo "CI checks detected for ci-checks: $ci_checks"; fi
   if [ -n "$ci_dynamic" ]; then
-    echo "WARNING: these CI jobs get their check name at run time (matrix, expression, reusable workflow),"
-    echo "         so they are not in ci-checks; add them by hand as they appear in a PR's checks:"
+    echo "WARNING: these CI jobs could not be listed in ci-checks (matrix, expression, reusable workflow,"
+    echo "         a comma in the name); add them by hand as they appear in a PR's checks:"
     while IFS= read -r j; do echo "         $j"; done <<<"$ci_dynamic"
   fi
   if [ -z "$ci_checks" ] && [ -z "$ci_dynamic" ]; then
