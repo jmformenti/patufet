@@ -43,8 +43,10 @@ labels before Claude runs, so that the label Claude adds always fires, and only 
 inside the Claude step can start the next stage.
 
 **The PR has no verdict label.**
-A review is running (the label is removed when it starts), or it ended without a verdict; then
-the PR also has `needs-human-review`.
+A review is running (the label is removed when it starts), or it ended without a verdict. If
+Claude finished without one, the PR also has `needs-human-review` and a comment; if the job failed
+before that, was cancelled or timed out, only its log says so. A re-run of a failed e2e that passes
+leaves no label either: add `pass` by hand, which runs e2e again.
 
 **`Newline followed by # inside a quoted argument` in the job log.**
 Claude Code rejects a multi-line `gh pr comment` with a line starting with `#`. The prompts ask

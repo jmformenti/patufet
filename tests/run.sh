@@ -373,6 +373,7 @@ if [ -n "$cleared" ] && [ "$cleared" -lt "$reviewed" ]; then pass "review.yml re
 lacks "the reviewer does not remove verdict labels" '--remove-label "{{label_pass}}"' "$(cat "$root/prompts/review.md")"
 has "the reviewer adds one label" '--add-label "LABEL"' "$(cat "$root/prompts/review.md")"
 has "e2e relabels in one call" '--remove-label "{{label_warning}}" --add-label "{{label_fail}}"' "$(cat "$root/prompts/e2e.md")"
+has "a re-run of e2e removes the previous fail, so that fix-review starts again" 'if: github.run_attempt > 1' "$(cat "$root/.github/workflows/e2e.yml")"
 for stage in review e2e; do
   has "$stage: the report has no line starting with #" 'No line of this comment may start with `#`' "$(cat "$root/prompts/$stage.md")"
 done

@@ -40,8 +40,12 @@ labels with `GITHUB_TOKEN` before Claude runs (which starts nothing) and the pro
 `--add-label`, so the result does not depend on the order the model follows.
 `scripts/set-verdict-label.sh` keeps two calls for the repairs. e2e cannot do the same, because
 its final comment needs `pass` to still be there; it goes from `pass` to `fail`, which one
-combined call handles. **Consequences.** While a review runs the PR has no verdict label, and a
-review that ends without a verdict leaves none, instead of the verdict of older code.
+combined call handles, and a re-run first removes the `fail` of the previous attempt so that
+fix-review starts again. **Consequences.** While a review runs the PR has no verdict label, and a
+review that ends without a verdict leaves none, instead of the verdict of older code. A fork PR
+keeps its label: its token is read-only, and its review fails anyway for lack of secrets. After
+a re-run of a failed e2e that passes, the PR has no verdict label and the final comment says it
+is not ready; adding `pass` by hand runs e2e again.
 
 ## 5. Structured output first, marker comment as fallback, bound to the run
 

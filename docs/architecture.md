@@ -69,7 +69,8 @@ Rules that make it work:
 - `pass`, `warning`, `fail` are **mutually exclusive**. `review.yml` removes them before Claude
   runs and Claude adds one. GitHub only emits a new `labeled` event — the trigger of `fix-review`
   and `e2e` — when the label really changes; a combined `--add-label X --remove-label X` does
-  not re-fire when the verdict repeats. While a review runs, the PR has no verdict label.
+  not re-fire when the verdict repeats. While a review runs, the PR has no verdict label (except
+  a fork PR, whose token is read-only).
 - Verdict labels are applied **by Claude inside the action run**, because that is the only
   moment the Claude App token is alive (the action revokes it as its last step) and events
   created with `GITHUB_TOKEN` never trigger other workflows. A deterministic step then

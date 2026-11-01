@@ -16,8 +16,9 @@
 - `ci-check-names` is deprecated (kept as it was; ignored when `ci-checks` is set).
 - Fix: the next stage no longer starts twice. The reviewer sometimes added the verdict label
   before removing the others and then added it again, which ran fix-review or e2e twice. The
-  review now removes the verdict labels when it starts and Claude only adds one, so **a PR has no
-  verdict label while its review runs**, and none if the review ends without a verdict.
+  review now removes the verdict labels when it starts and Claude only adds one, so **a PR (not
+  from a fork) has no verdict label while its review runs**, and none if the review ends without
+  a verdict.
 - Fix: the reviewer and the e2e tester write bold titles instead of Markdown headings, which
   Claude Code rejected in a multi-line `gh pr comment`, spending several attempts on each report.
 - `test-command` is optional and no longer recommended when the repository has CI on PRs: when
