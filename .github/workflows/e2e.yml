@@ -77,10 +77,6 @@ on:
         description: Verdict label "fail" (sends the PR back to fix-review)
         type: string
         default: fail
-      legacy-plan-heading:
-        description: Also accept plan comments containing this heading (migration aid). Empty = marker only
-        type: string
-        default: ''
       timeout-minutes:
         description: Job timeout
         type: number
@@ -186,8 +182,7 @@ jobs:
         id: context
         env:
           BRANCH_PREFIX: ${{ inputs.branch-prefix }}
-          LEGACY_HEADING: ${{ inputs.legacy-plan-heading }}
-        run: '"$TPL_DIR/scripts/gather-context.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER" "$BRANCH_PREFIX" "$LEGACY_HEADING" e2e "$RUNNER_TEMP" >> "$GITHUB_OUTPUT"'
+        run: '"$TPL_DIR/scripts/gather-context.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER" "$BRANCH_PREFIX" e2e "$RUNNER_TEMP" >> "$GITHUB_OUTPUT"'
 
       - name: Render the prompt
         id: prompt

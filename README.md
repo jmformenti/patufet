@@ -82,7 +82,7 @@ Then:
 
 1. Check `ci-checks` in `.github/workflows/patufet.yml`: the bootstrap fills it in with the CI
    jobs it detects, and the review waits for them. Without CI on pull requests, it warns you: add
-   a CI workflow, or set `test-command` in the `implement` and `fix-review` jobs. See
+   a CI workflow. See
    [The CI-aware review](docs/customization.md#the-ci-aware-review).
 2. Optionally write your project checklist in `.github/patufet/review.md` / `implement.md`.
 3. Commit and push.

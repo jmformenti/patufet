@@ -95,7 +95,8 @@ matters more than the updates.
 **Context.** `test-command` copied each repository's CI by hand and drifted from it, and the
 review ran in parallel with CI, so a PR could get `pass` while its CI ended red. **Decision.**
 The review job polls the checks named in `ci-checks` and gives their result and failed logs to
-the same Claude review. `test-command` becomes optional. A new input instead of reinterpreting
+the same Claude review. `test-command` became optional and was removed in v1.3.0, once the
+consumers had migrated. A new input instead of reinterpreting
 `ci-check-names`: that one holds free text, which would never match a check and would make every
 review wait until the timeout.
 

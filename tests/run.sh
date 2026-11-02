@@ -53,7 +53,7 @@ eq "e2e has no warning verdict" "" "$(STRUCTURED='{"verdict":"warning"}' rv e2e 
 echo "# find-plan.sh / count-review-cycles.sh / find-review-report.sh"
 export GH_STUB_ISSUE_COMMENTS="$fx/plan-comments.json"
 eq "latest collaborator plan wins; strangers and bots ignored" $'<!-- patufet:plan -->\n## Plan v2' "$("$s/find-plan.sh" octo/app 3)"
-has "legacy heading accepted when configured" "old style plan" "$("$s/find-plan.sh" octo/app 3 "## Pla d'implementació")"
+lacks "a comment without the marker is not a plan" "old style plan" "$("$s/find-plan.sh" octo/app 3)"
 export GH_STUB_ISSUE_COMMENTS="$fx/review-comments.json"
 if "$s/find-plan.sh" octo/app 3 >/dev/null 2>&1; then fail "no trusted plan → exit 1"; else pass "no trusted plan → exit 1"; fi
 eq "cycles count trusted reports with the exact marker only" 4 "$("$s/count-review-cycles.sh" octo/app 7)"
@@ -107,13 +107,11 @@ has "extension appended verbatim" "Vue: {{ name }}" "$out"
 : > "$work/empty.md"
 lacks "empty extension adds no heading" "Project-specific" "$(TPL_a=x "$s/render-prompt.sh" "$work/t.md" "$work/empty.md" 2>/dev/null)"
 
-echo "# plan-section.sh / format-test-command.sh"
+echo "# plan-section.sh"
 printf '## Plan\n' > "$work/plan.md"
 has "review with plan" $'<plan>\n## Plan\n</plan>' "$("$s/plan-section.sh" review 5 "$work/plan.md")"
 has "e2e without plan" "gh issue view 5" "$("$s/plan-section.sh" e2e 5 "$work/empty.md")"
 has "no issue" "not linked to any issue" "$("$s/plan-section.sh" review "" "$work/empty.md")"
-eq "test command as a bash block" $'```bash\nmake test\n```' "$("$s/format-test-command.sh" 'make test')"
-has "no test command: reproduce CI" "CI workflows in \`.github/workflows/\`" "$("$s/format-test-command.sh" '')"
 
 echo "# wait-for-ci.sh"
 export PATUFET_CI_POLL_SECONDS=0
@@ -158,24 +156,22 @@ result() {  # result <state> <checks json>
   jq -n --arg state "$1" --argjson checks "$2" '{state: $state, sha: "abc123", checks: $checks, seen: []}' > "$work/r.json"
 }
 failed='[{"name":"Backend Tests","state":"failure","conclusion":"failure","url":"https://x/job/201","job_id":"201"},{"name":"External CI","state":"failure","conclusion":"timed_out","url":"https://ci/9","job_id":null},{"name":"Frontend Build","state":"success","conclusion":"success","url":"https://x/job/202","job_id":"202"}]'
-eq "no ci-checks, no names: as before" "You cannot run tests or builds; base your assessment of tests on reading the diff only." "$("$s/ci-section.sh" octo/app "$work/none.json" '')"
-has "no ci-checks: ci-check-names still used as prose" "PR checks: the jobs of CI." "$("$s/ci-section.sh" octo/app "$work/none.json" 'the jobs of CI')"
+eq "no ci-checks: only the diff" "You cannot run tests or builds; base your assessment of tests on reading the diff only." "$("$s/ci-section.sh" octo/app "$work/none.json")"
 result success '[{"name":"Backend Tests","state":"success"}]'
-out=$("$s/ci-section.sh" octo/app "$work/r.json" 'ignored prose')
+out=$("$s/ci-section.sh" octo/app "$work/r.json")
 has "success names the checks" 'these checks passed: `Backend Tests`' "$out"
-lacks "ci-checks wins over ci-check-names" "ignored prose" "$out"
 result timeout '[{"name":"Backend Tests","state":"pending"},{"name":"Testz","state":"missing"},{"name":"Lint","state":"success"}]'
-out=$("$s/ci-section.sh" octo/app "$work/r.json" '')
+out=$("$s/ci-section.sh" octo/app "$work/r.json")
 has "timeout says CI could not be confirmed" "CI could not be confirmed" "$out"
 has "timeout: a pending check is still running" '`Backend Tests`: still running' "$out"
 has "timeout: a missing check is not said to be running" '`Testz`: no check with this name exists' "$out"
 has "timeout: a finished check keeps its state" '`Lint`: success' "$out"
 result unavailable '[{"name":"Backend Tests","state":"unknown"}]'
-has "unavailable hints at the permission" "checks: read" "$("$s/ci-section.sh" octo/app "$work/r.json" '')"
+has "unavailable hints at the permission" "checks: read" "$("$s/ci-section.sh" octo/app "$work/r.json")"
 result failure "$failed"
 export GH_STUB_JOB_LOG="$fx/job-log.txt"
 : > "$GH_STUB_LOG"
-out=$("$s/ci-section.sh" octo/app "$work/r.json" '')
+out=$("$s/ci-section.sh" octo/app "$work/r.json")
 has "failure is stated" "**CI failed**" "$out"
 has "external check listed with its conclusion and URL" '`External CI`: timed_out (https://ci/9)' "$out"
 has "log excerpt keeps the error" "FooTest.bar: expected 1 but was 2" "$out"
@@ -184,22 +180,22 @@ lacks "the job's cleanup left out" "orphan processes" "$out"
 lacks "timestamps stripped" "2026-11-01T" "$out"
 eq "a log cannot close its own tag" 1 "$(grep -c '</ci-log>' <<< "$out")"
 eq "only the failed Actions job is downloaded" "gh api repos/octo/app/actions/jobs/201/logs --allow-escape-sequences" "$(cat "$GH_STUB_LOG")"
-has "a gh without the escape flag still gets the log" "FooTest.bar" "$(GH_STUB_OLD_GH=1 "$s/ci-section.sh" octo/app "$work/r.json" '')"
+has "a gh without the escape flag still gets the log" "FooTest.bar" "$(GH_STUB_OLD_GH=1 "$s/ci-section.sh" octo/app "$work/r.json")"
 printf '2026-11-01T10:00:00.0000000Z \033[31mred error\033[0m\n' > "$work/colour.log"
-out=$(GH_STUB_JOB_LOG="$work/colour.log" "$s/ci-section.sh" octo/app "$work/r.json" '')
+out=$(GH_STUB_JOB_LOG="$work/colour.log" "$s/ci-section.sh" octo/app "$work/r.json")
 has "colours removed" "red error" "$out"
 lacks "no escape sequence reaches the prompt" $'\033' "$out"
-out=$(GH_STUB_JOB_LOG_ERROR='gh: Resource not accessible by integration (HTTP 403)' "$s/ci-section.sh" octo/app "$work/r.json" '' 2>/dev/null)
+out=$(GH_STUB_JOB_LOG_ERROR='gh: Resource not accessible by integration (HTTP 403)' "$s/ci-section.sh" octo/app "$work/r.json" 2>/dev/null)
 has "no actions: read: failed names still reported" '`Backend Tests`: failure' "$out"
 has "no actions: read: hint" "actions: read" "$out"
 lacks "no actions: read: no log block" "<ci-log" "$out"
-has "other log errors are said too" "could not be downloaded" "$(GH_STUB_JOB_LOG_ERROR='gh: HTTP 500' "$s/ci-section.sh" octo/app "$work/r.json" '')"
+has "other log errors are said too" "could not be downloaded" "$(GH_STUB_JOB_LOG_ERROR='gh: HTTP 500' "$s/ci-section.sh" octo/app "$work/r.json")"
 yes 'a very long line of build output that repeats and repeats and repeats' | head -5000 > "$work/big.log"
-out=$(GH_STUB_JOB_LOG="$work/big.log" "$s/ci-section.sh" octo/app "$work/r.json" '')
+out=$(GH_STUB_JOB_LOG="$work/big.log" "$s/ci-section.sh" octo/app "$work/r.json")
 if [ "${#out}" -lt 10000 ]; then pass "a long log without error lines is capped"; else fail "a long log without error lines is capped (${#out})"; fi
 many=$(jq -nc '[range(5) | {name: "job\(.)", state: "failure", conclusion: "failure", url: "u", job_id: "\(.)"}]')
 result failure "$many"
-has "at most three logs" "Log of \`job3\` left out" "$("$s/ci-section.sh" octo/app "$work/r.json" '')"
+has "at most three logs" "Log of \`job3\` left out" "$("$s/ci-section.sh" octo/app "$work/r.json")"
 unset GH_STUB_JOB_LOG
 
 echo "# e2e-pass-comment.sh"
@@ -337,7 +333,8 @@ mkdir -p "$repo/.github/workflows"
   [ "$(grep -c 'human-reviewer: "ana"' "$caller")" = 3 ] && echo "ok   reviewer filled in (review, fix-review and e2e)" || echo "FAIL reviewer filled in"
   grep -q 'ci-checks: ""$' "$caller" && echo "ok   no CI: ci-checks stays empty" || echo "FAIL no CI: ci-checks stays empty"
   grep -q 'no workflow runs CI on pull requests' "$work/b1.log" && echo "ok   no CI: warned" || echo "FAIL no CI: warned"
-  grep -qE '^ +test-command:' "$caller" && echo "FAIL no test-command generated" || echo "ok   no test-command generated"
+  secrets_passed=$(grep -E '^ +secrets: *inherit|\$\{\{ *secrets\.' "$caller" .github/workflows/patufet-mention.yml | grep -oE 'inherit|secrets\.[A-Za-z0-9_]+' | sort -u | tr '\n' ' ')
+  [ "$secrets_passed" = "secrets.ANTHROPIC_API_KEY secrets.CLAUDE_CODE_OAUTH_TOKEN " ] && echo "ok   only the Claude secrets are passed" || echo "FAIL only the Claude secrets are passed: $secrets_passed"
   [ "$(grep -c 'language: "ca"$' "$caller")" = 4 ] && echo "ok   language filled in" || echo "FAIL language filled in"
   grep -q 'e2e.yml@v1$' "$caller" && echo "ok   e2e job installed" || echo "FAIL e2e job installed"
   [ -f .github/patufet/e2e-up.sh ] && echo "ok   e2e hooks copied" || echo "FAIL e2e hooks copied"
@@ -379,6 +376,9 @@ for stage in review e2e; do
 done
 
 echo "# prompts ↔ workflows ↔ docs"
+for stage in implement fix-review; do
+  has "$stage: the agent reproduces CI" 'the steps of the CI workflows' "$(tr '\n' ' ' < "$root/prompts/$stage.md")"
+done
 for stage in implement review fix-review e2e; do
   wf="$root/.github/workflows/$stage.yml"
   for p in $(grep -oE '\{\{[a-z0-9_]+\}\}' "$root/prompts/$stage.md" | tr -d '{}' | sort -u); do

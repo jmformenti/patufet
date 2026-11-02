@@ -18,7 +18,7 @@ same issue resumes from the branch.
 
 **`blocked` with "no approved plan found".**
 The plan comment lacks the `<!-- patufet:plan -->` marker, or its author is not a
-collaborator (see security.md). For old issues use `legacy-plan-heading`.
+collaborator (see security.md). For an old plan, add the marker line to the comment.
 
 **The agent's push did not trigger the review.**
 Events created with `GITHUB_TOKEN` never trigger workflows. The action pushes with its own

@@ -13,10 +13,6 @@ on:
         description: Path (in the consumer repo) of a Markdown file appended to the base prompt (project review checklist)
         type: string
         default: .github/patufet/review.md
-      ci-check-names:
-        description: Deprecated, use ci-checks. Human description of the CI checks that already run tests/build on the PR (so the reviewer does not try to). Ignored when ci-checks is set
-        type: string
-        default: ''
       ci-checks:
         description: Names of the CI checks to wait for before reviewing, separated by commas (a job's check name, e.g. "Backend Tests, Frontend Build"). Their result and failed logs reach the reviewer. Empty = no wait
         type: string
@@ -77,10 +73,6 @@ on:
         description: Label for PRs that need a human (removed on pass)
         type: string
         default: needs-human-review
-      legacy-plan-heading:
-        description: Also accept plan comments containing this heading (migration aid). Empty = marker only
-        type: string
-        default: ''
       timeout-minutes:
         description: Timeout of the review, not counting the wait for ci-checks
         type: number
@@ -145,9 +137,8 @@ jobs:
         id: context
         env:
           BRANCH_PREFIX: ${{ inputs.branch-prefix }}
-          LEGACY_HEADING: ${{ inputs.legacy-plan-heading }}
         run: |
-          "$TPL_DIR/scripts/gather-context.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER" "$BRANCH_PREFIX" "$LEGACY_HEADING" review "$RUNNER_TEMP" >> "$GITHUB_OUTPUT"
+          "$TPL_DIR/scripts/gather-context.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER" "$BRANCH_PREFIX" review "$RUNNER_TEMP" >> "$GITHUB_OUTPUT"
           cycles=$("$TPL_DIR/scripts/count-review-cycles.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER")
           echo "cycle=$((cycles + 1))" >> "$GITHUB_OUTPUT"
 
@@ -187,11 +178,10 @@ jobs:
           TPL_label_fail: ${{ inputs.label-fail }}
           TPL_label_needs_human_review: ${{ inputs.label-needs-human-review }}
           TPL_human_reviewer: ${{ inputs.human-reviewer != '' && format('@{0}', inputs.human-reviewer) || 'none is configured, so mention nobody' }}
-          CI_CHECK_NAMES: ${{ inputs.ci-check-names }}
           EXTRA_FILE: ${{ inputs.extra-instructions-file }}
         run: |
           TPL_plan_section="$(cat "$RUNNER_TEMP/plan_section.md")"; export TPL_plan_section
-          TPL_ci_section="$("$TPL_DIR/scripts/ci-section.sh" "$GITHUB_REPOSITORY" "$RUNNER_TEMP/ci-result.json" "$CI_CHECK_NAMES")"; export TPL_ci_section
+          TPL_ci_section="$("$TPL_DIR/scripts/ci-section.sh" "$GITHUB_REPOSITORY" "$RUNNER_TEMP/ci-result.json")"; export TPL_ci_section
           "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/review.md" "$EXTRA_FILE" \
             | "$TPL_DIR/scripts/github-output.sh" text
 

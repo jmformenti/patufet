@@ -80,7 +80,7 @@ labels are left untouched.
 | `install-playwright` | `true` (set false if your image already has Chromium) |
 | `playwright-mcp-version` | `0.0.82` — `@playwright/mcp` version; the browser installed is the one of the Playwright version it depends on |
 | `allowed-tools` | `mcp__playwright__*,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh pr edit:*),Bash(gh issue view:*)` — no `gh pr merge`: the tester reads pages rendered by the PR's code |
-| `branch-prefix`, `language`, `model`, `allowed-bots`, `claude-args-extra`, `show-full-output`, `legacy-plan-heading` | as in [customization.md](customization.md) |
+| `branch-prefix`, `language`, `model`, `allowed-bots`, `claude-args-extra`, `show-full-output` | as in [customization.md](customization.md) |
 | `label-pass`, `label-warning`, `label-fail` | `pass`, `warning`, `fail` |
 | `max-turns` | `200` |
 | `timeout-minutes` | `30` |

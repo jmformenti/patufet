@@ -63,7 +63,8 @@ Then, for each case that applies, do the following and mention it in your final 
   say so in the report and do not list those jobs in `ci-checks`.
 - **No workflow runs CI on pull requests.** Then nothing tests the PRs of people. Offer the
   owner to add one that runs the project's tests and build; if they accept, do it first, in its
-  own PR. If they decline, set `test-command` (section 4).
+  own PR. If they decline, say in the report that only what `AGENTS.md`, `CLAUDE.md` or the README
+  say to run checks the agents' work.
 
 Files the bootstrap would create that already exist (`.github/patufet/*`,
 `.claude/commands/plan-issue.md`) are kept as they are; no action needed.
@@ -89,10 +90,8 @@ checks for the secret. Read its output: the final "Next steps" block and any `WA
   `branches:` filters, which would make the review wait until the timeout). Add by hand the jobs
   the bootstrap warned about (matrix, reusable workflow), with the name they show in a PR's
   checks. Details: [docs/customization.md](docs/customization.md#the-ci-aware-review).
-- `test-command`: do not copy CI into it. The agents reproduce the CI workflows and fall back to
-  `AGENTS.md` / `CLAUDE.md`, so check that those describe the build and test commands correctly.
-  Only without CI on pull requests, uncomment it in `implement` and set the same value in
-  `fix-review`.
+- Build and test commands: the agents reproduce the CI workflows and fall back to `AGENTS.md`,
+  `CLAUDE.md` or the README, so check that those describe them correctly.
 - `java-version`, `node-version` (`implement` and `fix-review`): set them if CI pins a version
   that differs from what `ubuntu-latest` brings.
 - Keep `language` and `human-reviewer` as the bootstrap set them.
@@ -138,7 +137,7 @@ locally, and see below). The workflows only become active once merged.
 
 The PR body is the hand-over report. Put in it:
 
-- what you inferred and from where: `ci-checks`, `test-command` if you set it, the contents of the
+- what you inferred and from where: `ci-checks`, the contents of the
   `.github/patufet/*.md` files (or why you deleted them), the e2e hooks if any;
 - the conflicts found in section 2 and what you did about each;
 - the bootstrap's label lines (`create <label>` / `keep <label>`): an uninstall deletes

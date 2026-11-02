@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## v1.3.0 — 2026-11-02
+
+- **Breaking:** removed the `test-command`, `ci-check-names` and `legacy-plan-heading` inputs, and
+  `scripts/format-test-command.sh`. A caller that still passes one of them is an invalid workflow.
+  The implementer and fix-review now always reproduce the CI workflows, falling back to
+  `AGENTS.md` / `CLAUDE.md` / README; `ci-checks` tells the review what to wait for; a plan
+  comment needs its marker. See `docs/migration.md`.
+- The template and `bootstrap.sh` pass only `CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_API_KEY`
+  instead of `secrets: inherit`. Existing callers keep working either way; replacing it is
+  recommended, see `docs/migration.md`.
+
 ## v1.2.0 — 2026-11-01
 
 - The review can wait for the repository's CI and include its result. New `review` inputs:
