@@ -39,8 +39,8 @@ it before anything with write access runs.
 
 - `CLAUDE_CODE_OAUTH_TOKEN` / `ANTHROPIC_API_KEY`: repository secrets. The caller passes only
   these two, not `secrets: inherit`: the workflows are referenced by the movable `@v1` tag, so they
-  should not get the rest of the repository's secrets. They never leave the consumer repository;
-  this template holds none.
+  should not get the rest of the repository's secrets. They are stored only in the consumer
+  repository, not in this template or in patufet, and reach the runner when a job runs.
 - Each consumer must use **its own** credentials, billed to their owner. An OAuth token is
   tied to one person's Claude subscription and is meant for that person's ordinary use of
   Claude Code (its official action accepts it for that person's repositories); never share

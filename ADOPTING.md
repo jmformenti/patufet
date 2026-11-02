@@ -63,8 +63,8 @@ Then, for each case that applies, do the following and mention it in your final 
   say so in the report and do not list those jobs in `ci-checks`.
 - **No workflow runs CI on pull requests.** Then nothing tests the PRs of people. Offer the
   owner to add one that runs the project's tests and build; if they accept, do it first, in its
-  own PR. If they decline, say in the report that only what `AGENTS.md` / `CLAUDE.md` say to run
-  checks the agents' work.
+  own PR. If they decline, say in the report that only what `AGENTS.md`, `CLAUDE.md` or the README
+  say to run checks the agents' work.
 
 Files the bootstrap would create that already exist (`.github/patufet/*`,
 `.claude/commands/plan-issue.md`) are kept as they are; no action needed.
@@ -90,8 +90,8 @@ checks for the secret. Read its output: the final "Next steps" block and any `WA
   `branches:` filters, which would make the review wait until the timeout). Add by hand the jobs
   the bootstrap warned about (matrix, reusable workflow), with the name they show in a PR's
   checks. Details: [docs/customization.md](docs/customization.md#the-ci-aware-review).
-- Build and test commands: the agents reproduce the CI workflows and fall back to `AGENTS.md` /
-  `CLAUDE.md`, so check that those describe them correctly.
+- Build and test commands: the agents reproduce the CI workflows and fall back to `AGENTS.md`,
+  `CLAUDE.md` or the README, so check that those describe them correctly.
 - `java-version`, `node-version` (`implement` and `fix-review`): set them if CI pins a version
   that differs from what `ubuntu-latest` brings.
 - Keep `language` and `human-reviewer` as the bootstrap set them.

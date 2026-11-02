@@ -135,7 +135,7 @@ if was_created "$caller" && [ -f "$detect_ci" ]; then
   if $ci_detected && [ -z "$ci_checks" ] && [ -z "$ci_dynamic" ]; then
     echo "WARNING: no workflow runs CI on pull requests, so the PRs of people are not tested at all."
     echo "         Add one and list its jobs in ci-checks. Until then the agents only have what"
-    echo "         AGENTS.md or CLAUDE.md say to run, and nothing else checks their PRs."
+    echo "         AGENTS.md, CLAUDE.md or the README say to run, and nothing else checks their PRs."
   fi
 fi
 
