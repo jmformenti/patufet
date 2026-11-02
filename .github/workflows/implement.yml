@@ -16,10 +16,6 @@ on:
         description: Branch name prefix; the issue number is appended
         type: string
         default: agent/issue-
-      test-command:
-        description: Shell command(s) that must pass before a PR is opened (multi-line allowed). Empty (recommended when the repository has CI on PRs) = the agent reproduces the CI workflow steps, or else what the repository docs say
-        type: string
-        default: ''
       java-version:
         description: Java version to set up on the runner (actions/setup-java, Temurin), to match CI. Empty = the runner's default
         type: string
@@ -72,10 +68,6 @@ on:
         description: Label set on the issue when the run fails or produces nothing
         type: string
         default: blocked
-      legacy-plan-heading:
-        description: Also accept plan comments containing this heading (migration aid). Empty = marker only
-        type: string
-        default: ''
       timeout-minutes:
         description: Job timeout
         type: number
@@ -129,11 +121,10 @@ jobs:
       - name: Extract the approved plan
         id: plan
         env:
-          LEGACY_HEADING: ${{ inputs.legacy-plan-heading }}
           LABEL_BLOCKED: ${{ inputs.label-blocked }}
           LABEL_READY: ${{ inputs.label-ready }}
         run: |
-          if ! "$TPL_DIR/scripts/find-plan.sh" "$GITHUB_REPOSITORY" "$ISSUE_NUMBER" "$LEGACY_HEADING" > "$RUNNER_TEMP/plan.md"; then
+          if ! "$TPL_DIR/scripts/find-plan.sh" "$GITHUB_REPOSITORY" "$ISSUE_NUMBER" > "$RUNNER_TEMP/plan.md"; then
             gh issue edit "$ISSUE_NUMBER" --remove-label "$LABEL_READY" --add-label "$LABEL_BLOCKED"
             gh issue comment "$ISSUE_NUMBER" --body "⚠️ patufet: no approved plan found. The plan must be a comment containing \`<!-- patufet:plan -->\` written by a repository collaborator. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             exit 1
@@ -174,11 +165,9 @@ jobs:
           TPL_language: ${{ inputs.language }}
           TPL_label_in_progress: ${{ inputs.label-in-progress }}
           TPL_label_to_refine: ${{ inputs.label-to-refine }}
-          TEST_COMMAND: ${{ inputs.test-command }}
           EXTRA_FILE: ${{ inputs.extra-instructions-file }}
         run: |
           TPL_plan="$(cat "$RUNNER_TEMP/plan.md")"; export TPL_plan
-          TPL_test_command="$("$TPL_DIR/scripts/format-test-command.sh" "$TEST_COMMAND")"; export TPL_test_command
           "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/implement.md" "$EXTRA_FILE" \
             | "$TPL_DIR/scripts/github-output.sh" text
 

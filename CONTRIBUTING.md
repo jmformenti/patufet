@@ -49,9 +49,10 @@ To add a test, add a fixture (a real API response, trimmed) and a few `eq` / `ha
 3. Consumers on `@v1` get it on their next run; tell the ones pinned to `@v1.x.y`.
 
 **Breaking changes** (renamed input, changed marker, new required file) normally bump the
-major (`v2`, new moving tag `v2`) with migration steps in the changelog. While habitus-trainer
-is the only known consumer, the maintainer may instead ship them on `v1` and migrate it the
-same day; the changelog entry is then marked **Breaking** and the minor is bumped.
+major (`v2`, new moving tag `v2`) with migration steps in the changelog. While the only known
+consumers are the maintainer's (habitus-trainer, philobiblon-ui, carabassa), they may instead be
+shipped on `v1` once those are migrated; the changelog entry is then marked **Breaking** and the
+minor is bumped.
 
 ## Rolling back
 

@@ -12,10 +12,6 @@ on:
         description: Maximum number of automatic review reports before asking for a human
         type: number
         default: 10
-      test-command:
-        description: Shell command(s) that must pass before pushing (multi-line allowed). Empty (recommended when the repository has CI on PRs) = the agent reproduces the CI workflow steps, or else what the repository docs say
-        type: string
-        default: ''
       java-version:
         description: Java version to set up on the runner (actions/setup-java, Temurin), to match CI. Empty = the runner's default
         type: string
@@ -161,14 +157,12 @@ jobs:
           TPL_repository: ${{ github.repository }}
           TPL_branch: ${{ github.event.pull_request.head.ref }}
           TPL_language: ${{ inputs.language }}
-          TEST_COMMAND: ${{ inputs.test-command }}
           EXTRA_FILE: ${{ inputs.extra-instructions-file }}
         run: |
           TPL_review_report="$("$TPL_DIR/scripts/find-review-report.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER")"; export TPL_review_report
           TPL_inline_comments="$("$TPL_DIR/scripts/find-inline-comments.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER")"
           [ -n "$TPL_inline_comments" ] || TPL_inline_comments="(none)"
           export TPL_inline_comments
-          TPL_test_command="$("$TPL_DIR/scripts/format-test-command.sh" "$TEST_COMMAND")"; export TPL_test_command
           "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/fix-review.md" "$EXTRA_FILE" \
             | "$TPL_DIR/scripts/github-output.sh" text
 

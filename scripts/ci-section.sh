@@ -1,24 +1,20 @@
 #!/usr/bin/env bash
 # Print the {{ci_section}} of the review prompt: what CI says about this commit
 # and, when it failed, an excerpt of the failed logs. Without a result file (no
-# `ci-checks`, or a fork PR) it prints what the reviewer has always been told.
+# `ci-checks`, or a fork PR) the reviewer only has the diff.
 #
-# Usage: ci-section.sh <owner/repo> <result file of wait-for-ci.sh> "<ci-check-names>"
+# Usage: ci-section.sh <owner/repo> <result file of wait-for-ci.sh>
 #
 # The logs are capped: the prompt travels through an environment variable, whose
 # single-value limit on Linux is 128 KiB, and it also carries the plan.
 # shellcheck disable=SC2016  # literal backticks (Markdown), nothing to expand
 set -euo pipefail
 
-repo="$1" result="$2" legacy_names="${3:-}"
+repo="$1" result="$2"
 max_logs=3 max_lines=100 max_line_chars=500 max_log_bytes=8000
 
 if [ ! -s "$result" ]; then
-  if [ -n "$legacy_names" ]; then
-    echo "You cannot run tests or builds. The following CI checks already do it on every PR and their result is visible in the PR checks: $legacy_names. Base your assessment of tests on reading the diff only."
-  else
-    echo "You cannot run tests or builds; base your assessment of tests on reading the diff only."
-  fi
+  echo "You cannot run tests or builds; base your assessment of tests on reading the diff only."
   exit 0
 fi
 

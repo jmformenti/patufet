@@ -32,9 +32,7 @@ Common to `implement`, `review`, `fix-review`, `e2e`:
 |---|---|---|
 | `issue-number` | *(required)* | The caller passes `fromJSON(inputs.issue \|\| github.event.issue.number)`. |
 | `branch-prefix` | `agent/issue-` | Branch = prefix + issue number. Also used by review/e2e to find the linked issue. |
-| `test-command` | `''` | Multi-line shell that must pass before a PR is opened. Not recommended when the repository has CI on PRs: empty = the agent reproduces the steps of the CI workflows, falling back to `AGENTS.md` / `CLAUDE.md` / README. Useful without CI on PRs. |
 | `java-version`, `node-version` | `''` | Set up that version on the runner (`actions/setup-java` with Temurin, `actions/setup-node`) so that it matches CI. Empty = what `ubuntu-latest` brings. Also on `fix-review`. |
-| `legacy-plan-heading` | `''` | Also accept plan comments that *contain* this heading (e.g. `## Pla d'implementació`) — migration aid, remove once old issues are done. Also on `review` and `e2e`. |
 | `label-ready`, `label-in-progress`, `label-to-refine`, `label-blocked` | `ready-to-implement`, `in-progress`, `to-refine`, `blocked` | See [Renaming the labels](#renaming-the-labels). |
 
 `review`:
@@ -44,7 +42,6 @@ Common to `implement`, `review`, `fix-review`, `e2e`:
 | `ci-checks` | `''` | Check names to wait for before reviewing, comma-separated. See [The CI-aware review](#the-ci-aware-review). Empty = no wait. |
 | `ci-wait-timeout-minutes` | `30` | Maximum wait for `ci-checks`. When it ends, the review runs and reports that CI has not finished. |
 | `human-reviewer` | `''` | Login (no `@`) mentioned when a CI failure needs a person: it is unrelated to the diff, or the workflow had to force `fail` over a `pass`. |
-| `ci-check-names` | `''` | **Deprecated**, use `ci-checks`. Free text telling the reviewer which CI jobs exist; it waits for nothing and is ignored when `ci-checks` is set. |
 | `branch-prefix` | `agent/issue-` | Same as implement, to find the linked issue. |
 | `allowed-bots` | `claude` | The implementer opens PRs as the `claude` bot; without this the action refuses bot-triggered events. Also on `fix-review` and `e2e`. |
 | `label-pass`, `label-warning`, `label-fail`, `label-needs-human-review` | `pass`, `warning`, `fail`, `needs-human-review` | Created if missing (existing labels are never modified). |
@@ -57,7 +54,6 @@ Output: `verdict` (`pass` / `warning` / `fail`).
 |---|---|---|
 | `max-review-cycles` | `10` | Reports before handing over to a human. |
 | `human-reviewer` | `''` | Login (no `@`) mentioned when the limit is reached. |
-| `test-command` | `''` | Same as implement. |
 | `label-needs-human-review` | `needs-human-review` | Set when the limit is reached. |
 
 `e2e`: see [e2e.md](e2e.md) (`label-pass`, `label-warning`, `label-fail` as in review).
@@ -149,7 +145,7 @@ result, labels) — the deterministic steps depend on it.
 ### Placeholders available in base prompts
 
 If you fork and edit `prompts/*.md`: `{{issue}}`, `{{pr}}`, `{{repository}}`, `{{branch}}`,
-`{{language}}`, `{{plan}}`, `{{plan_section}}`, `{{test_command}}`, `{{ci_section}}`,
+`{{language}}`, `{{plan}}`, `{{plan_section}}`, `{{ci_section}}`,
 `{{cycle}}`, `{{run}}`, `{{review_report}}`, `{{inline_comments}}`, `{{e2e_env}}`,
 `{{label_in_progress}}`, `{{label_to_refine}}`, `{{label_pass}}`, `{{label_warning}}`,
 `{{label_fail}}`, `{{label_needs_human_review}}`, `{{human_reviewer}}`. Each workflow sets the ones its prompt

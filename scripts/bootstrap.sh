@@ -134,8 +134,8 @@ if was_created "$caller" && [ -f "$detect_ci" ]; then
   fi
   if $ci_detected && [ -z "$ci_checks" ] && [ -z "$ci_dynamic" ]; then
     echo "WARNING: no workflow runs CI on pull requests, so the PRs of people are not tested at all."
-    echo "         Add one (recommended) and list its jobs in ci-checks. Until then set test-command in"
-    echo "         the implement and fix-review jobs of $caller."
+    echo "         Add one and list its jobs in ci-checks. Until then the agents only have what"
+    echo "         AGENTS.md or CLAUDE.md say to run, and nothing else checks their PRs."
   fi
 fi
 
@@ -201,7 +201,7 @@ steps=()
 if $ci_detected && [ -n "$ci_checks$ci_dynamic" ]; then
   steps+=("Check ci-checks in $caller: only the jobs that must be green to merge.")
 elif $ci_detected; then
-  steps+=("Add a CI workflow for pull requests and list its jobs in ci-checks of $caller, or set test-command there.")
+  steps+=("Add a CI workflow for pull requests and list its jobs in ci-checks of $caller.")
 fi
 steps+=("Check that AGENTS.md or CLAUDE.md describe the build and test commands correctly: the agents rely on them."
         "Edit .github/patufet/*.md with your project's checklist (or delete them).")

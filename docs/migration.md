@@ -19,12 +19,9 @@ This is the path the original project (`habitus-trainer`) followed.
    - implementer hints → `.github/patufet/implement.md`;
    - the e2e readiness/seeding shell → `.github/patufet/e2e-up.sh` / `e2e-down.sh`, and
      what to always test → `.github/patufet/e2e.md`.
-3. Set `ci-checks`, `human-reviewer`, `language` in the caller (and `test-command`, only
-   without CI on pull requests).
-4. Open issues whose plan comment has no marker: either edit the comment and prepend the
-   line `<!-- patufet:plan -->` (simplest), or set
-   `legacy-plan-heading: "## Your old heading"` on `implement`, `review` and `e2e` if the old
-   plans share a distinctive heading; remove it when those issues are closed.
+3. Set `ci-checks`, `human-reviewer`, `language` in the caller.
+4. Open issues whose plan comment has no marker: edit the comment and prepend the line
+   `<!-- patufet:plan -->`.
 5. Update the local `/plan-issue` command (`.claude/commands/plan-issue.md`) so it writes the
    `<!-- patufet:plan -->` marker.
 6. Clean up: repository variables the old flow used (e.g. `MAX_REVIEW_CYCLES` → input
@@ -37,17 +34,23 @@ This is the path the original project (`habitus-trainer`) followed.
 - Major bump: the changelog lists the renamed inputs / new files; update the caller and the
   extension files, then change `@v1` → `@v2`.
 
-### To the CI-aware review (opt-in)
+### To v1.3.0 (breaking)
 
-Nothing changes until you do this, in `.github/workflows/patufet.yml`. Without CI on pull
-requests, add a CI workflow first, running what `test-command` runs today.
+The `test-command`, `ci-check-names` and `legacy-plan-heading` inputs no longer exist: **a caller
+that still passes one is an invalid workflow, and its flow stops**. Do this before `@v1` reaches
+that repository, or pin it to `@v1.2.0` until then. In `.github/workflows/patufet.yml`:
 
-1. `review` job: add `ci-checks: "<check names>"` and `human-reviewer: "<login>"`, remove
+1. Without CI on pull requests, add a CI workflow first, running what `test-command` ran.
+2. `review` job: add `ci-checks: "<check names>"` and `human-reviewer: "<login>"`, remove
    `ci-check-names`, and add `actions: read` and `checks: read` to `permissions`. See
    [The CI-aware review](customization.md#the-ci-aware-review) for the names to use.
-2. `implement` and `fix-review` jobs: remove `test-command`. Add `java-version` / `node-version`
+3. `implement` and `fix-review` jobs: remove `test-command`. Add `java-version` / `node-version`
    instead of any workaround to get the versions CI uses.
-3. Check that `AGENTS.md` / `CLAUDE.md` describe the build and test commands correctly: the
-   implementer now relies on them and on the CI workflows.
+4. Remove `legacy-plan-heading`. Add the line `<!-- patufet:plan -->` to the plans of open issues
+   that do not have it.
+5. Check that `AGENTS.md` / `CLAUDE.md` describe the build and test commands correctly: the
+   implementer relies on them and on the CI workflows.
+6. Recommended: replace `secrets: inherit` with the secret you use, in this file and in
+   `patufet-mention.yml`. See [security.md](security.md#tokens).
 
 As with any PR that edits the caller, this one gets no automatic review.

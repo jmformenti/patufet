@@ -8,12 +8,11 @@ def trusted:
          or (.user.type == "Bot" and (.user.login | IN("claude[bot]", "github-actions[bot]"))));
 
 # The body of the latest plan comment written by a collaborator (bots cannot
-# approve a plan), or empty. $legacy, when not empty, also accepts comments
-# containing that heading.
-def latest_plan($marker; $legacy):
+# approve a plan), or empty.
+def latest_plan($marker):
   [ .[]
     | select(.author_association | IN("OWNER", "MEMBER", "COLLABORATOR"))
-    | select((.body | contains($marker)) or ($legacy != "" and (.body | contains($legacy))))
+    | select(.body | contains($marker))
   ] | last | .body // empty;
 
 # Trusted comments carrying the exact "<!-- patufet:<kind> ... -->" marker

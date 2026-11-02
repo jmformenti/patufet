@@ -30,14 +30,14 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     with:
       issue-number: ${{ fromJSON(inputs.issue || github.event.issue.number) }}
       language: en
       # Build and test: the agent reproduces your CI workflows, or else what AGENTS.md / CLAUDE.md
-      # say. Only without CI on pull requests, set the commands here and in fix-review:
-      # test-command: |
-      #   make test
+      # say. Set java-version / node-version, here and in fix-review, if CI pins them.
 
   # every push to a non-draft PR → review + verdict label
   review:
@@ -53,7 +53,9 @@ jobs:
       id-token: write
       actions: read # the logs of failed CI jobs
       checks: read # the state of CI (needed on private repositories)
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     with:
       language: en
       human-reviewer: ""
@@ -72,7 +74,9 @@ jobs:
       pull-requests: write
       issues: read
       id-token: write
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     with:
       language: en
       max-review-cycles: 10
@@ -90,7 +94,9 @@ jobs:
       pull-requests: write
       issues: read
       id-token: write
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     with:
       language: en
       human-reviewer: ""
