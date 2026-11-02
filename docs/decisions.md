@@ -30,12 +30,22 @@ structured verdict and repairs it with `GITHUB_TOKEN`, saying the next stage mus
 started by hand. **Consequences.** One model run per review; the tools of those agents must
 allow `gh pr edit`, and the App token they use can write (see decision 7).
 
-## 4. Two `gh pr edit` calls per verdict
+## 4. The workflow removes the verdict labels, Claude adds one
 
 **Context.** GitHub emits `labeled` only when a label is really added; a combined
-`--remove-label X --add-label X` does not re-fire when the verdict repeats. **Decision.**
-Remove all verdict labels, then add one, in separate calls (prompts and
-`scripts/set-verdict-label.sh`).
+`--remove-label X --add-label X` does not re-fire when the verdict repeats. The reviewer first
+did both, in two calls, but in real runs it sometimes added the label before removing the others
+and added it again: the next stage started twice. **Decision.** `review.yml` removes the verdict
+labels with `GITHUB_TOKEN` before Claude runs (which starts nothing) and the prompt asks for one
+`--add-label`, so the result does not depend on the order the model follows.
+`scripts/set-verdict-label.sh` keeps two calls for the repairs. e2e cannot do the same, because
+its final comment needs `pass` to still be there; it goes from `pass` to `fail`, which one
+combined call handles, and a re-run first removes the `fail` of the previous attempt so that
+fix-review starts again. **Consequences.** While a review runs the PR has no verdict label, and a
+review that ends without a verdict leaves none, instead of the verdict of older code. A fork PR
+keeps its label: its token is read-only, and its review fails anyway for lack of secrets. After
+a re-run of a failed e2e that passes, the PR has no verdict label and the final comment says it
+is not ready; adding `pass` by hand runs e2e again.
 
 ## 5. Structured output first, marker comment as fallback, bound to the run
 

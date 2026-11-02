@@ -37,10 +37,21 @@ step is over. Anything that must trigger another workflow (labelling) has to hap
 the Claude run; steps after it only get `GITHUB_TOKEN`.
 
 **`fix-review` did not start after a `warning` although the label is there.**
-The verdict was the same as the previous cycle and the label was added/removed in a single
-`gh pr edit` call, so GitHub emitted no new `labeled` event. `scripts/set-verdict-label.sh`
-always does two separate calls; if the label step used `GITHUB_TOKEN` instead of the App
-token the event would not trigger anything either.
+The label was already there when it was added, so GitHub emitted no new `labeled` event, or it
+was added with `GITHUB_TOKEN`, whose events trigger nothing. `review.yml` removes the verdict
+labels before Claude runs, so that the label Claude adds always fires, and only the App token
+inside the Claude step can start the next stage.
+
+**The PR has no verdict label.**
+A review is running (the label is removed when it starts), or it ended without a verdict. If
+Claude finished without one, the PR also has `needs-human-review` and a comment; if the job failed
+before that, was cancelled or timed out, only its log says so. A re-run of a failed e2e that passes
+leaves no label either: add `pass` by hand, which runs e2e again.
+
+**`Newline followed by # inside a quoted argument` in the job log.**
+Claude Code rejects a multi-line `gh pr comment` with a line starting with `#`. The prompts ask
+for bold titles for that reason. If an extension file asks for Markdown headings in the report,
+remove that: each rejected attempt spends turns.
 
 **The review ended "waiting for agents" and posted nothing.**
 Happened with the `code-review` plugin: it spawns parallel subagents and in non-interactive

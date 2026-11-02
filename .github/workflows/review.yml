@@ -156,6 +156,14 @@ jobs:
       - name: Ensure the verdict labels exist
         run: '"$TPL_DIR/scripts/ensure-labels.sh" "$LABEL_PASS=0E8A16" "$LABEL_WARNING=FBCA04" "$LABEL_FAIL=B60205" "$LABEL_NHR=5319E7"'
 
+      # Claude only has to add one label, so the next stage cannot start twice, and
+      # `labeled` still fires when the verdict repeats. GITHUB_TOKEN events start
+      # nothing. Until the new verdict the PR has none: the old one was for older code.
+      # A fork PR has a read-only token, and its review fails at the Claude step anyway.
+      - name: Remove the previous verdict label
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        run: gh pr edit "$PR_NUMBER" --remove-label "$LABEL_PASS" --remove-label "$LABEL_WARNING" --remove-label "$LABEL_FAIL"
+
       # A fork PR has no secrets, so its review fails at the Claude step: no point
       # in idling first
       - name: Wait for the CI checks

@@ -131,6 +131,21 @@ jobs:
           TEMPLATE_REPO: ${{ job.workflow_repository }}
           TEMPLATE_SHA: ${{ job.workflow_sha }}
 
+      # A re-run of a failed e2e finds `fail` already there, and adding it again would
+      # not start fix-review. Only on re-runs: on a first run, `fail` can be the verdict
+      # the review has just forced. Not if the PR has moved on: that verdict is newer.
+      - name: Remove the verdict of the previous attempt
+        if: github.run_attempt > 1
+        env:
+          LABEL_WARNING: ${{ inputs.label-warning }}
+          LABEL_FAIL: ${{ inputs.label-fail }}
+          TESTED_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          head=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
+          if [ "$head" = "$TESTED_SHA" ]; then
+            gh pr edit "$PR_NUMBER" --remove-label "$LABEL_WARNING" --remove-label "$LABEL_FAIL"
+          fi
+
       - name: Start the application (e2e-up hook)
         env:
           UP_SCRIPT: ${{ inputs.up-script }}
