@@ -13,6 +13,7 @@ flowchart LR
     review -->|"warning / fail"| fix[fix-review]
     fix -->|push| pr
     review -->|pass| e2e["e2e (optional)"]
+    e2e -->|fail| fix
     e2e -->|✅| human[human review + merge]
 ```
 
