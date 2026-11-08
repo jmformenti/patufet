@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Print the comment for a PR whose live e2e test passed. It only says "ready for
 # merge" if the PR is still at the tested commit and still labelled pass: the
-# verdict can change while e2e runs (a red CI forces `fail`, a person relabels).
+# verdict can change while e2e runs (a new push, a person relabels).
 #
 # Usage: e2e-pass-comment.sh <pr> <tested-sha> <label-pass> [human-reviewer]
 set -euo pipefail

@@ -20,7 +20,7 @@ Common to `implement`, `review`, `fix-review`, `e2e`:
 | `language` | `en` | Language of the comments / PR descriptions Claude writes. Free text or ISO code. Code and commit messages follow the repository conventions, not this. |
 | `model` | *(action default)* | Passed as `--model`. A cheaper model for `review` is a common saving. |
 | `max-turns` | 400 (implement, review, fix-review) / 200 (e2e) | Hard cap on agent turns. |
-| `allowed-tools` | per workflow | `--allowedTools`. Implementer and fixer get `Bash,Edit,Write,Read,Glob,Grep`; reviewer and e2e tester only `gh pr view/diff/comment/edit`, `gh issue view` and their read / MCP tools. Inside the action `gh` uses the Claude App token, which **can write**: widen these two only knowing that (see [security.md](security.md)). |
+| `allowed-tools` | per workflow | `--allowedTools`. Implementer and fixer get `Bash,Edit,Write,Read,Glob,Grep`; reviewer and e2e tester only `gh pr view/diff/comment`, `gh issue view` and their read / MCP tools (they do not label: the workflow does). Inside the action `gh` uses the Claude App token, which **can write**: widen these two only knowing that (see [security.md](security.md)). |
 | `claude-args-extra` | `''` | Anything else for `claude_args`. |
 | `show-full-output` | `true` | Full transcript in the job log. Needed to diagnose tool denials; may echo secrets printed by tools. |
 | `extra-instructions-file` | `.github/patufet/<stage>.md` | See layer 2. |
@@ -46,7 +46,7 @@ Common to `implement`, `review`, `fix-review`, `e2e`:
 | `allowed-bots` | `claude` | The implementer opens PRs as the `claude` bot; without this the action refuses bot-triggered events. Also on `fix-review` and `e2e`. |
 | `label-pass`, `label-warning`, `label-fail`, `label-needs-human-review` | `pass`, `warning`, `fail`, `needs-human-review` | Created if missing (existing labels are never modified). |
 
-Output: `verdict` (`pass` / `warning` / `fail`).
+Outputs: `verdict` (the label set: `pass` / `warning` / `fail`, empty when none) and `next-stage` (`fix-review` / `e2e`, empty when none), which the caller's `fix-review` and `e2e` jobs read with `needs: review`. `e2e` returns the same two (`next-stage=fix-review` on a failure, for `fix-e2e`).
 
 `fix-review`:
 
@@ -118,8 +118,8 @@ After a flaky failure, re-run the CI job and then the `review` job of the same p
 Rename when a flow label already means something else in the repository (a project board's
 `blocked`, a bot's `pass`...). Three places, all in the consumer repository:
 
-1. the `label-*` inputs of every job that has them (the prompts receive the names, so Claude
-   labels with yours);
+1. the `label-*` inputs of every job that has them (the workflows set the verdict labels with
+   them, and the implementer's prompt receives the issue labels);
 2. the caller's `if:` conditions, which compare `github.event.label.name` with literal names;
 3. nothing for `/plan-issue`: it reads the `label-ready` value from the caller.
 

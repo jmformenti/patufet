@@ -84,11 +84,30 @@ eq "branch with another prefix" "" "$(linked 'no keyword' feat/42)"
 echo "# set-verdict-label.sh"
 : > "$GH_STUB_LOG"
 "$s/set-verdict-label.sh" 7 pass P W F NHR >/dev/null
-eq "two separate calls, pass removes needs-human-review" $'gh pr edit 7 --remove-label P --remove-label W --remove-label F\ngh pr edit 7 --add-label P --remove-label NHR' "$(cat "$GH_STUB_LOG")"
+eq "one call, pass removes needs-human-review" "gh pr edit 7 --add-label P --remove-label W --remove-label F --remove-label NHR" "$(cat "$GH_STUB_LOG")"
 : > "$GH_STUB_LOG"
 "$s/set-verdict-label.sh" 7 warning P W F NHR >/dev/null
-eq "warning keeps needs-human-review" "gh pr edit 7 --add-label W" "$(tail -1 "$GH_STUB_LOG")"
+eq "warning keeps needs-human-review" "gh pr edit 7 --add-label W --remove-label P --remove-label F" "$(cat "$GH_STUB_LOG")"
+: > "$GH_STUB_LOG"
+"$s/set-verdict-label.sh" 7 fail P W F NHR true >/dev/null
+eq "fail can add needs-human-review" "gh pr edit 7 --add-label F --remove-label P --remove-label W --add-label NHR" "$(cat "$GH_STUB_LOG")"
+: > "$GH_STUB_LOG"
+"$s/set-verdict-label.sh" 7 pass P W F >/dev/null
+eq "without the needs-human-review label it is left alone" "gh pr edit 7 --add-label P --remove-label W --remove-label F" "$(cat "$GH_STUB_LOG")"
 if "$s/set-verdict-label.sh" 7 maybe P W F 2>/dev/null; then fail "unknown verdict → exit 1"; else pass "unknown verdict → exit 1"; fi
+
+echo "# route-review.sh"
+route() { "$s/route-review.sh" "$@" 2>/dev/null | tr '\n' ' ' || printf 'EXIT %s' "$?"; }
+eq "pass → e2e" "verdict=pass next-stage=e2e needs-human=false reason=ok " "$(route pass success false false)"
+eq "warning → fix-review" "verdict=warning next-stage=fix-review needs-human=false reason=ok " "$(route warning "" false false)"
+eq "fail → fix-review" "verdict=fail next-stage=fix-review needs-human=false reason=ok " "$(route fail failure false false)"
+eq "pass on a red CI → fail, a person decides" "verdict=fail next-stage= needs-human=true reason=forced-fail " "$(route pass failure false false)"
+eq "CI failure unrelated to the diff → no fix" "verdict=fail next-stage= needs-human=true reason=human " "$(route fail failure true false)"
+eq "no verdict → needs a human, no label" "verdict= next-stage= needs-human=true reason=no-verdict " "$(route "" "" false false)"
+eq "PR moved on → no state at all" "verdict= next-stage= needs-human=false reason=moved " "$(route fail failure true true)"
+eq "PR moved on wins over no verdict" "verdict= next-stage= needs-human=false reason=moved " "$(route "" "" false true)"
+eq "pass on a timed-out CI still goes on" "verdict=pass next-stage=e2e needs-human=false reason=ok " "$(route pass timeout false false)"
+eq "unknown verdict → error" "EXIT 1" "$(route maybe "" false false)"
 
 echo "# ensure-labels.sh"
 : > "$GH_STUB_LOG"
@@ -216,7 +235,7 @@ lacks "PR moved on: nobody mentioned" "@ana" "$out"
 wf_e2e=$(cat "$root/.github/workflows/e2e.yml")
 has "e2e.yml uses the comment script" 'scripts/e2e-pass-comment.sh" "$PR_NUMBER" "$TESTED_SHA" "$LABEL_PASS" "$REVIEWER"' "$wf_e2e"
 lacks "e2e.yml has no other ready-for-merge path" "Ready for human review" "$wf_e2e"
-has "a forced fail mentions the reviewer" 'by hand to continue.$mention"' "$(cat "$root/.github/workflows/review.yml")"
+has "a forced fail mentions the reviewer" 'to let fix-review try.$mention"' "$(cat "$root/.github/workflows/review.yml")"
 
 echo "# detect-ci-checks.sh"
 ci="$work/ci-repo"
@@ -330,12 +349,12 @@ mkdir -p "$repo/.github/workflows"
   if "$s/bootstrap.sh" --reviewer --with-e2e > /dev/null 2>&1; then echo "FAIL an option is not accepted as a value"; else echo "ok   an option is not accepted as a value"; fi
   "$s/bootstrap.sh" --reviewer ana --language ca --with-e2e > "$work/b1.log" 2>&1 || echo "FAIL bootstrap exited non-zero: $(cat "$work/b1.log")"
   caller=.github/workflows/patufet.yml
-  [ "$(grep -c 'human-reviewer: "ana"' "$caller")" = 3 ] && echo "ok   reviewer filled in (review, fix-review and e2e)" || echo "FAIL reviewer filled in"
+  [ "$(grep -c 'human-reviewer: "ana"' "$caller")" = 4 ] && echo "ok   reviewer filled in (review, fix-review, e2e and fix-e2e)" || echo "FAIL reviewer filled in"
   grep -q 'ci-checks: ""$' "$caller" && echo "ok   no CI: ci-checks stays empty" || echo "FAIL no CI: ci-checks stays empty"
   grep -q 'no workflow runs CI on pull requests' "$work/b1.log" && echo "ok   no CI: warned" || echo "FAIL no CI: warned"
   secrets_passed=$(grep -E '^ +secrets: *inherit|\$\{\{ *secrets\.' "$caller" .github/workflows/patufet-mention.yml | grep -oE 'inherit|secrets\.[A-Za-z0-9_]+' | sort -u | tr '\n' ' ')
   [ "$secrets_passed" = "secrets.ANTHROPIC_API_KEY secrets.CLAUDE_CODE_OAUTH_TOKEN " ] && echo "ok   only the Claude secrets are passed" || echo "FAIL only the Claude secrets are passed: $secrets_passed"
-  [ "$(grep -c 'language: "ca"$' "$caller")" = 4 ] && echo "ok   language filled in" || echo "FAIL language filled in"
+  [ "$(grep -c 'language: "ca"$' "$caller")" = 5 ] && echo "ok   language filled in" || echo "FAIL language filled in"
   grep -q 'e2e.yml@v1$' "$caller" && echo "ok   e2e job installed" || echo "FAIL e2e job installed"
   [ -f .github/patufet/e2e-up.sh ] && echo "ok   e2e hooks copied" || echo "FAIL e2e hooks copied"
   grep -q 'label create pass' "$GH_STUB_LOG" && echo "FAIL existing label recreated" || echo "ok   existing label left untouched"
@@ -363,14 +382,31 @@ mkdir -p "$repo/.github/workflows"
 cat "$work/bootstrap.out"
 failures=$((failures + $(grep -c '^FAIL' "$work/bootstrap.out")))
 
-echo "# verdict labels and report format"
+echo "# verdict labels and the chaining of stages (decision 11)"
 line_of() { grep -n -m1 -F -- "$1" "$wf_review" | cut -d: -f1; }
 cleared=$(line_of 'name: Remove the previous verdict label'); reviewed=$(line_of 'name: Run Claude Code review')
 if [ -n "$cleared" ] && [ "$cleared" -lt "$reviewed" ]; then pass "review.yml removes the verdict labels before Claude runs"; else fail "review.yml removes the verdict labels before Claude runs"; fi
-lacks "the reviewer does not remove verdict labels" '--remove-label "{{label_pass}}"' "$(cat "$root/prompts/review.md")"
-has "the reviewer adds one label" '--add-label "LABEL"' "$(cat "$root/prompts/review.md")"
-has "e2e relabels in one call" '--remove-label "{{label_warning}}" --add-label "{{label_fail}}"' "$(cat "$root/prompts/e2e.md")"
-has "a re-run of e2e removes the previous fail, so that fix-review starts again" 'if: github.run_attempt > 1' "$(cat "$root/.github/workflows/e2e.yml")"
+for stage in review e2e; do
+  lacks "$stage: the agent is not told to label" 'gh pr edit' "$(cat "$root/prompts/$stage.md")"
+  lacks "$stage: the agent cannot label" 'Bash(gh pr edit' "$(cat "$root/.github/workflows/$stage.yml")"
+  has "$stage: returns the next stage to the caller" 'value: ${{ jobs.'"$stage"'.outputs.next-stage }}' "$(cat "$root/.github/workflows/$stage.yml")"
+done
+has "review.yml routes with the script" 'scripts/route-review.sh" "$verdict" "$CI_STATE" "$needs_human" "$moved"' "$(cat "$wf_review")"
+has "the reviewer can ask for a human in the structured result" '"needs_human":{"type":"boolean"}' "$(cat "$wf_review")"
+has "the prompt explains needs_human" '"needs_human": true' "$(cat "$root/prompts/review.md")"
+has "a re-run of e2e restores pass" 'name: Restore the pass label on a re-run' "$wf_e2e"
+has "fix-review does nothing once the PR has moved on" 'echo "state=moved"' "$(cat "$root/.github/workflows/fix-review.yml")"
+lacks "no stage asks a person to relabel to continue" 'by hand to continue' "$(cat "$root"/.github/workflows/*.yml)"
+caller_job() { awk -v j="  $1:" '$0 == j {f=1; next} /^  [a-z0-9-]+:$/ {f=0} f' "$root/templates/.github/workflows/patufet.yml"; }
+for job in fix-review e2e; do
+  has "caller: $job needs the review" 'needs: review' "$(caller_job "$job")"
+  has "caller: $job also runs when the review is skipped (a person's label)" '!cancelled()' "$(caller_job "$job")"
+done
+has "caller: fix-review follows the review's next stage" "needs.review.outputs.next-stage == 'fix-review'" "$(caller_job fix-review)"
+has "caller: e2e follows the review's next stage" "needs.review.outputs.next-stage == 'e2e'" "$(caller_job e2e)"
+has "caller: fix-e2e follows a failed e2e" "needs.e2e.outputs.next-stage == 'fix-review'" "$(caller_job fix-e2e)"
+e2e_block=$(sed -n '/# --- e2e (optional)/,/# --- end e2e ---/p' "$root/templates/.github/workflows/patufet.yml")
+has "caller: fix-e2e is removed with the e2e block" '  fix-e2e:' "$e2e_block"
 for stage in review e2e; do
   has "$stage: the report has no line starting with #" 'No line of this comment may start with `#`' "$(cat "$root/prompts/$stage.md")"
 done

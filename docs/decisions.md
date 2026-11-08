@@ -30,7 +30,7 @@ structured verdict and repairs it with `GITHUB_TOKEN`, saying the next stage mus
 started by hand. **Consequences.** One model run per review; the tools of those agents must
 allow `gh pr edit`, and the App token they use can write (see decision 7).
 
-*To be superseded by decision 11 when it is implemented.*
+*Superseded by decision 11.*
 
 ## 4. The workflow removes the verdict labels, Claude adds one
 
@@ -49,7 +49,7 @@ keeps its label: its token is read-only, and its review fails anyway for lack of
 a re-run of a failed e2e that passes, the PR has no verdict label and the final comment says it
 is not ready; adding `pass` by hand runs e2e again.
 
-*To be superseded by decision 11 when it is implemented.*
+*Superseded by decision 11.*
 
 ## 5. Structured output first, marker comment as fallback, bound to the run
 
@@ -75,7 +75,7 @@ the implementer and fixer get `Bash` because they must run tests and git. **Cons
 `gh pr edit` cannot be limited to labels by prefix: those agents can still change the PR's
 title, body, base branch and reviewers, not merge or push. Widening `allowed-tools` on
 review / e2e gives write access to an agent that reads untrusted content (the diff, the
-running app).
+running app). Since decision 11 those two agents no longer label, and they lost `gh pr edit`.
 
 ## 8. Only trusted text reaches an agent that can write
 
@@ -125,8 +125,8 @@ the App token outside Claude and a new comment format for `fix-review`.
 
 ## 11. Stages chain with `needs:` inside one run; Claude never sets the state
 
-**Status.** Accepted on 2026-11-08, not implemented yet. It supersedes decisions 3 and 4 and
-narrows decision 7.
+**Status.** Accepted on 2026-11-08, implemented for v1.4.0. It supersedes decisions 3 and 4
+and narrows decision 7.
 
 **Context.** Two GitHub rules shape the chaining. Events created with `GITHUB_TOKEN` start no
 workflow run, and a run shows in a PR's checks only when a PR event started it. Today only the
@@ -189,8 +189,9 @@ patufet.
 - The caller changes, so it is a breaking change. Following CONTRIBUTING.md, it ships as a
   minor marked **Breaking** once the three consumers are migrated; otherwise it needs `v2`. The
   PRs that edit `patufet.yml` must be merged by hand (see troubleshooting.md).
-- What goes away: the label repair, the comments asking to relabel by hand, the removal of
-  labels before Claude runs, and `gh pr edit` in the review and e2e tools.
+- What goes away: the label repair, the comments asking to relabel by hand, and `gh pr edit` in
+  the review and e2e tools. `review.yml` still removes the verdict labels before Claude runs, now
+  only so that the PR never shows the verdict of older code.
 - One run holds the review and the stages that follow it. "Re-run failed jobs" works within
   that run.
 - The PR's checks still list skipped jobs, as they do today.

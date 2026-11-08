@@ -34,6 +34,27 @@ This is the path the original project (`habitus-trainer`) followed.
 - Major bump: the changelog lists the renamed inputs / new files; update the caller and the
   extension files, then change `@v1` → `@v2`.
 
+### To v1.4.0 (breaking)
+
+The stages after a review now run in the review's own run, chained with `needs:`, and Claude no
+longer labels (decision 11). With an old caller, **the flow stops after every review**: the
+workflow sets the verdict label with `GITHUB_TOKEN`, which starts nothing. The new caller also
+works with v1.3.x, so migrate it first and then let `@v1` move. In
+`.github/workflows/patufet.yml`, compared with `templates/.github/workflows/patufet.yml`:
+
+1. `fix-review` job: add `needs: review` and replace its `if:` with the template's, which runs it
+   on `needs.review.outputs.next-stage == 'fix-review'` or on a `warning` / `fail` label that a
+   person adds. Keep the `!cancelled()`: without it the job is skipped whenever the review is,
+   which is the case on every `labeled` event.
+2. `e2e` job, if you have one: the same with `next-stage == 'e2e'` and the `pass` label.
+3. Also if you have `e2e`: add the `fix-e2e` job after it (`needs: e2e`). It has the same `with:`
+   as `fix-review`.
+4. If you renamed the verdict labels, keep your names in the new `if:` conditions.
+5. If you widened `allowed-tools` of `review` or `e2e` with `Bash(gh pr edit:*)` for the labels,
+   remove it: the agents no longer label.
+
+As with any PR that edits the caller, this one gets no automatic review.
+
 ### To v1.3.0 (breaking)
 
 The `test-command`, `ci-check-names` and `legacy-plan-heading` inputs no longer exist: **a caller
