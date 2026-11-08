@@ -2,7 +2,9 @@
 #
 # Live functional test of a PR that passed the code review: the consumer's
 # `e2e-up.sh` hook starts the application, then Claude drives it with the
-# Playwright MCP server and reports. Optional stage — only wire it if the
+# Playwright MCP server and reports. A deterministic step labels the PR and
+# returns the stage that follows (fix-review on a failure), which the caller
+# starts with `needs:` (decision 11). Optional stage — only wire it if the
 # application can be started on a GitHub runner. See docs/e2e.md.
 name: patufet / e2e
 
@@ -42,11 +44,11 @@ on:
         type: number
         default: 200
       allowed-tools:
-        description: --allowedTools for the agent. gh runs with the Claude App token, which can write (and merge); keep this list to reading, commenting and labelling
+        description: --allowedTools for the agent. gh runs with the Claude App token, which can write (and merge); keep this list to reading and commenting
         type: string
-        default: mcp__playwright__*,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh pr edit:*),Bash(gh issue view:*)
+        default: mcp__playwright__*,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh issue view:*)
       allowed-bots:
-        description: Bots whose events may trigger the run (the reviewer labels as "claude")
+        description: Bots whose events may trigger the run (the implementer and fix-review push as "claude")
         type: string
         default: claude
       claude-args-extra:
@@ -66,7 +68,7 @@ on:
         type: string
         default: 0.0.82
       label-pass:
-        description: Verdict label "pass" (the trigger of this stage)
+        description: Verdict label "pass" (a person adding it starts this stage)
         type: string
         default: pass
       label-warning:
@@ -74,7 +76,7 @@ on:
         type: string
         default: warning
       label-fail:
-        description: Verdict label "fail" (sends the PR back to fix-review)
+        description: Verdict label "fail"
         type: string
         default: fail
       timeout-minutes:
@@ -86,6 +88,13 @@ on:
         required: false
       ANTHROPIC_API_KEY:
         required: false
+    outputs:
+      verdict:
+        description: The verdict of the live test, pass or fail (empty when there was none)
+        value: ${{ jobs.e2e.outputs.verdict }}
+      next-stage:
+        description: The stage the caller starts with `needs:`, fix-review (empty when none)
+        value: ${{ jobs.e2e.outputs.next-stage }}
 
 jobs:
   e2e:
@@ -100,13 +109,16 @@ jobs:
       pull-requests: write
       issues: read
       id-token: write
+    outputs:
+      verdict: ${{ steps.verdict.outputs.verdict }}
+      next-stage: ${{ steps.verdict.outputs.next-stage }}
     env:
       GH_TOKEN: ${{ github.token }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
       # Identifies this run's report comment, so an earlier run's never counts
       RUN_KEY: ${{ github.run_id }}.${{ github.run_attempt }}
     steps:
-      # The exact commit that got the `pass` label, not whatever the branch
+      # The exact commit that got the `pass` verdict, not whatever the branch
       # points to now
       - name: Checkout the PR head commit
         uses: actions/checkout@v6
@@ -127,19 +139,20 @@ jobs:
           TEMPLATE_REPO: ${{ job.workflow_repository }}
           TEMPLATE_SHA: ${{ job.workflow_sha }}
 
-      # A re-run of a failed e2e finds `fail` already there, and adding it again would
-      # not start fix-review. Only on re-runs: on a first run, `fail` can be the verdict
-      # the review has just forced. Not if the PR has moved on: that verdict is newer.
-      - name: Remove the verdict of the previous attempt
+      # e2e only starts on a `pass`. A re-run finds the `fail` of the previous
+      # attempt, which would make a passing run say that the PR is not ready: put
+      # `pass` back. Not if the PR has moved on: its newer review owns the label.
+      - name: Restore the pass label on a re-run
         if: github.run_attempt > 1
         env:
+          LABEL_PASS: ${{ inputs.label-pass }}
           LABEL_WARNING: ${{ inputs.label-warning }}
           LABEL_FAIL: ${{ inputs.label-fail }}
           TESTED_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           head=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
           if [ "$head" = "$TESTED_SHA" ]; then
-            gh pr edit "$PR_NUMBER" --remove-label "$LABEL_WARNING" --remove-label "$LABEL_FAIL"
+            "$TPL_DIR/scripts/set-verdict-label.sh" "$PR_NUMBER" pass "$LABEL_PASS" "$LABEL_WARNING" "$LABEL_FAIL"
           fi
 
       - name: Start the application (e2e-up hook)
@@ -191,9 +204,6 @@ jobs:
           TPL_repository: ${{ github.repository }}
           TPL_language: ${{ inputs.language }}
           TPL_run: ${{ github.run_id }}.${{ github.run_attempt }}
-          TPL_label_pass: ${{ inputs.label-pass }}
-          TPL_label_warning: ${{ inputs.label-warning }}
-          TPL_label_fail: ${{ inputs.label-fail }}
           EXTRA_FILE: ${{ inputs.extra-instructions-file }}
         run: |
           TPL_e2e_env="$(sed -E 's/^([^=]+)=(.*)$/- \1: \2/' "$PATUFET_E2E_ENV")"
@@ -220,11 +230,10 @@ jobs:
             ${{ inputs.claude-args-extra }}
           prompt: ${{ steps.prompt.outputs.text }}
 
-      # On failure Claude itself relabels the PR `fail` inside the action (app
-      # token → fix-review triggers; the token is revoked when the action ends).
-      # This step verifies/repairs the label and, on success, asks the human
-      # reviewer to merge — only if the PR is still at the tested commit and
-      # still labelled pass.
+      # The state is set here, never by Claude: `fail` with GITHUB_TOKEN (it starts
+      # nothing) and `next-stage=fix-review`, which the caller's fix job reads with
+      # `needs:` (decision 11). On success it asks the human reviewer to merge, only
+      # if the PR is still at the tested commit and still labelled pass.
       # Not on cancellation: a superseded run must not label.
       - name: Apply the e2e verdict
         id: verdict
@@ -238,6 +247,7 @@ jobs:
           LABEL_FAIL: ${{ inputs.label-fail }}
           REVIEWER: ${{ inputs.human-reviewer }}
           TESTED_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ -z "$CLAUDE_EXECUTION_FILE" ]; then
             echo "::error::The Claude action did not run (see its step log). No verdict."
@@ -246,21 +256,21 @@ jobs:
           verdict=$("$TPL_DIR/scripts/read-verdict.sh" e2e "$GITHUB_REPOSITORY" "$PR_NUMBER" "run=$RUN_KEY")
           echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
           if [ -z "$verdict" ] || [ "$CLAUDE_OUTCOME" != "success" ]; then
-            gh pr comment "$PR_NUMBER" --body "⚠️ patufet: the live e2e run produced no verdict (outcome: $CLAUDE_OUTCOME). Manual check needed. See ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            gh pr comment "$PR_NUMBER" --body "⚠️ patufet: the live e2e run produced no verdict (outcome: $CLAUDE_OUTCOME). Manual check needed. See $RUN_URL"
             exit 1
           fi
-          if [ "$verdict" = "fail" ]; then
-            if gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' | grep -qxF "$LABEL_FAIL"; then
-              echo "e2e failed and the PR is labelled '$LABEL_FAIL'."
-            else
-              echo "::warning::e2e failed but the PR is not labelled '$LABEL_FAIL'; repairing with GITHUB_TOKEN — fix-review will NOT be triggered automatically"
-              "$TPL_DIR/scripts/set-verdict-label.sh" "$PR_NUMBER" fail "$LABEL_PASS" "$LABEL_WARNING" "$LABEL_FAIL"
-              gh pr comment "$PR_NUMBER" --body "⚠️ patufet: the e2e tester reported a failure but did not relabel the PR; the label was repaired by the workflow, which cannot trigger the next stage. Remove and re-add the \`$LABEL_FAIL\` label by hand to continue."
-            fi
-          else
+          if [ "$verdict" = "pass" ]; then
             body=$("$TPL_DIR/scripts/e2e-pass-comment.sh" "$PR_NUMBER" "$TESTED_SHA" "$LABEL_PASS" "$REVIEWER")
             gh pr comment "$PR_NUMBER" --body "$body"
+            exit 0
           fi
+          head=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
+          if [ "$head" != "$TESTED_SHA" ]; then
+            echo "The PR has moved on from ${TESTED_SHA:0:7} to ${head:0:7}; the review of the new commit sets the state."
+            exit 0
+          fi
+          "$TPL_DIR/scripts/set-verdict-label.sh" "$PR_NUMBER" fail "$LABEL_PASS" "$LABEL_WARNING" "$LABEL_FAIL"
+          echo "next-stage=fix-review" >> "$GITHUB_OUTPUT"
 
       - name: Stop the application (e2e-down hook)
         if: always()

@@ -29,8 +29,8 @@ Review the whole diff looking at:
 - The verdict must be `fail`.
 - If the failure is clearly unrelated to the diff (runner, network, an outage, a flaky test the
   diff does not touch), say so in the report and do not ask for code changes. Also mention the
-  human reviewer in the report ({{human_reviewer}}) and add the label
-  `{{label_needs_human_review}}`. The verdict is still `fail`.
+  human reviewer in the report ({{human_reviewer}}) and set `"needs_human": true` in the
+  structured result. The verdict is still `fail`.
 
 ## Output
 
@@ -42,14 +42,8 @@ Review the whole diff looking at:
    verdict, conformance with the issue plan (if any) and the list of problems found (or a
    statement that everything is correct). **No line of this comment may start with `#`**: the
    tool rejects such a command, so use bold text instead of Markdown headings.
-3. After posting the report, label the PR with the verdict in **one single call**:
-   `gh pr edit {{pr}} --add-label "LABEL"`, where LABEL is `{{label_pass}}` for pass,
-   `{{label_warning}}` for warning and `{{label_fail}}` for fail (add
-   `--remove-label "{{label_needs_human_review}}"` to that call when the verdict is `pass`). The
-   workflow has already removed the previous verdict label, so do not remove any. Adding the
-   label starts the next stage: add it once.
-4. Finish by returning the structured result `{"verdict": "...", "summary": "..."}` with the
-   same verdict as the marker and the label.
+3. Finish by returning the structured result `{"verdict": "...", "summary": "..."}` with the
+   same verdict as the marker. A step after you labels the PR from it and starts the next stage.
 
 Verdict scale:
 - `pass`: mergeable as is (or only trivial nits that do not need another cycle). Never when CI
@@ -57,6 +51,5 @@ Verdict scale:
 - `warning`: must be fixed before merge but nothing is fundamentally wrong.
 - `fail`: bugs, missing plan items, security issues or broken conventions.
 
-Do not change any code, do not mention anyone, and do not touch any label other than the
-three verdict ones (plus `{{label_needs_human_review}}` on `pass`). The only exception to both
-is a CI failure unrelated to the diff, as described above.
+Do not change any code, do not add or remove labels, and do not mention anyone, except the human
+reviewer for a CI failure unrelated to the diff, as described above.

@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+- **Breaking:** the stages after a review run in the review's own run, chained with `needs:`,
+  and Claude no longer sets labels (decision 11). `review.yml` and `e2e.yml` return a new
+  `next-stage` output. The caller's `fix-review` and `e2e` jobs need `needs: review` and a new
+  `if:`, and a new `fix-e2e` job follows `e2e`. With an old caller the flow stops after every
+  review. The new caller also works with v1.3.x, so update it first: see `docs/migration.md`.
+- The verdict label is set by a deterministic step, so a stage can no longer start twice, and no
+  comment ever asks to relabel a PR by hand to continue. Every stage shows in the PR's checks.
+- The reviewer and the e2e tester lose `gh pr edit` (default `allowed-tools`). They only read
+  and comment.
+- A reviewer that finds a CI failure unrelated to the diff says so with `needs_human` in its
+  structured result. The workflow then sets `fail` and `needs-human-review`, and starts no fix.
+- A `pass` returned on a red CI is forced to `fail` with `needs-human-review`, and no fix starts:
+  that report asks for no change. Before, it was left for a person to relabel.
+- A review, e2e run or fix-review that finds the PR moved on from its commit sets no label and
+  starts nothing.
+- A re-run of a failed e2e puts `pass` back first, so a passing re-run says that the PR is ready.
+- Fix: after a failed e2e, fix-review applies the e2e report. Before, it read only the latest
+  review report, which said `pass`, so it had nothing to fix.
+
 ## v1.3.0 — 2026-11-02
 
 - **Breaking:** removed the `test-command`, `ci-check-names` and `legacy-plan-heading` inputs, and

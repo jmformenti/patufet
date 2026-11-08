@@ -59,8 +59,10 @@ The tester posts one comment whose first line is
 as structured output. A deterministic step reads the structured verdict (or, failing that,
 the marker of *this* run's comment by a trusted author) and then:
 
-- `fail` → Claude has relabelled the PR `fail` with the App token, which re-triggers
-  `fix-review` (the step repairs the label if Claude did not);
+- `fail` → labels the PR `fail` and returns `next-stage=fix-review`, which starts the caller's
+  `fix-e2e` job in the same run (`needs: e2e`). Nothing happens if the PR has moved on since the
+  tested commit, because its new review decides. A re-run first puts `pass` back, so a passing
+  re-run is ready for merge;
 - `pass` → posts "ready for human review" mentioning `human-reviewer`, if the PR is still at
   the tested commit and still labelled `pass`. If it has moved on, it only notes that the newer
   commits go through review and e2e again; if the label has changed, that the PR is not ready
@@ -79,7 +81,7 @@ labels are left untouched.
 | `human-reviewer` | `''` |
 | `install-playwright` | `true` (set false if your image already has Chromium) |
 | `playwright-mcp-version` | `0.0.82` — `@playwright/mcp` version; the browser installed is the one of the Playwright version it depends on |
-| `allowed-tools` | `mcp__playwright__*,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh pr edit:*),Bash(gh issue view:*)` — no `gh pr merge`: the tester reads pages rendered by the PR's code |
+| `allowed-tools` | `mcp__playwright__*,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh issue view:*)` — no `gh pr edit`, no `gh pr merge`: the tester reads pages rendered by the PR's code |
 | `branch-prefix`, `language`, `model`, `allowed-bots`, `claude-args-extra`, `show-full-output` | as in [customization.md](customization.md) |
 | `label-pass`, `label-warning`, `label-fail` | `pass`, `warning`, `fail` |
 | `max-turns` | `200` |

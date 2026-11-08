@@ -30,6 +30,8 @@ structured verdict and repairs it with `GITHUB_TOKEN`, saying the next stage mus
 started by hand. **Consequences.** One model run per review; the tools of those agents must
 allow `gh pr edit`, and the App token they use can write (see decision 7).
 
+*Superseded by decision 11.*
+
 ## 4. The workflow removes the verdict labels, Claude adds one
 
 **Context.** GitHub emits `labeled` only when a label is really added; a combined
@@ -46,6 +48,8 @@ review that ends without a verdict leaves none, instead of the verdict of older 
 keeps its label: its token is read-only, and its review fails anyway for lack of secrets. After
 a re-run of a failed e2e that passes, the PR has no verdict label and the final comment says it
 is not ready; adding `pass` by hand runs e2e again.
+
+*Superseded by decision 11.*
 
 ## 5. Structured output first, marker comment as fallback, bound to the run
 
@@ -71,7 +75,7 @@ the implementer and fixer get `Bash` because they must run tests and git. **Cons
 `gh pr edit` cannot be limited to labels by prefix: those agents can still change the PR's
 title, body, base branch and reviewers, not merge or push. Widening `allowed-tools` on
 review / e2e gives write access to an agent that reads untrusted content (the diff, the
-running app).
+running app). Since decision 11 those two agents no longer label, and they lost `gh pr edit`.
 
 ## 8. Only trusted text reaches an agent that can write
 
@@ -118,3 +122,76 @@ the App token outside Claude and a new comment format for `fix-review`.
   refuses while any other job of the run is still in progress.
 - The issue's `--required` idea was left out: `ci-checks` is explicit and works without branch
   protection.
+
+## 11. Stages chain with `needs:` inside one run; Claude never sets the state
+
+**Status.** Accepted on 2026-11-08, implemented for v1.4.0. It supersedes decisions 3 and 4
+and narrows decision 7.
+
+**Context.** Two GitHub rules shape the chaining. Events created with `GITHUB_TOKEN` start no
+workflow run, and a run shows in a PR's checks only when a PR event started it. Today only the
+Claude App token, alive inside the Claude step, can create a PR event that starts the next
+stage, so the model sets the verdict label (decisions 3 and 4). That costs a repair path, which
+asks a human to relabel when the model did not label, a transient `pass` that can start e2e on a
+red CI, a double start when the model labelled twice (fixed in v1.2.0), and `gh pr edit` in the
+tools of agents that read untrusted content. One criterion was wanted for every transition, with
+no workaround.
+
+**Decision.** The labels stay the state, but only deterministic steps write them, and the stages
+that follow a review run in the same run.
+
+- `fix-review` and `e2e` are jobs of the caller's `pull_request` run, with `needs: review` and an
+  `if:` on the verdict that `review.yml` returns as a `workflow_call` output. A failed e2e is
+  followed by a second `fix-review` job with `needs: e2e`.
+- Claude returns the verdict (structured output, or the marker of this run's comment, see
+  decision 5) and posts its comments. It never adds or removes a label. A deterministic step sets
+  the verdict label with `GITHUB_TOKEN`, as state for humans; it starts nothing, so a stage
+  cannot start twice.
+- Transitions that create code stay events of the Claude App token: the implementer opens the PR
+  (`opened`) and `fix-review` pushes (`synchronize`), which starts the next review.
+- People keep moving the flow by hand. A label they add starts its stage alone in a run of its
+  own (`labeled`), and a push starts a review.
+- `fix-review` does nothing when the PR head is no longer the commit its run started from.
+- The review still waits for CI by polling (decision 10).
+
+**Rejected.**
+
+- A GitHub App of patufet's own, to get a token whose events start workflows. A private app
+  means two secrets per repository, a `bot-login` input and a period where both bots are
+  trusted. It can only be installed on the account that owns it, so not on an organisation's
+  repository, and every new permission becomes a manual step for every adopter. A public app
+  needs a server that holds a key to every installation and exchanges OIDC tokens. Chainguard's
+  `octo-sts` offers that service, but its app asks for admin-level write permissions. In about
+  31 reviewed PRs across the three consumers, no stage ever had to be restarted by hand.
+- A deterministic step that starts the next stage with `workflow_dispatch`, the one event
+  `GITHUB_TOKEN` may create. It works, but the dispatched run does not show in the PR. The PR
+  shows the stage as skipped by the `pull_request` run instead, which is misleading. Check runs or
+  commit statuses could make it visible, but they stay pending forever when a job dies, and they
+  duplicate the label state.
+- A label set by CI, or by a Claude run at the end of CI, to start the review. A label set with
+  `GITHUB_TOKEN` starts nothing, and a model run just to obtain a token is costly and may not
+  label. `workflow_run`, and CI inside patufet's run, were already rejected in decision 10.
+
+**Evidence.** Spikes on the sandbox repository, run on 2026-11-08 with a local reusable workflow:
+
+- A `needs:` job can branch on a reusable workflow's output, two levels deep, and every job
+  shows in the PR's checks.
+- Labels added or removed with `GITHUB_TOKEN` created no run.
+- A push during `fix-review` did not cancel it, and the new run's fix job waited for it
+  (`cancel-in-progress: false`).
+- Two quick pushes cancelled the first review, and the jobs that needed it were skipped.
+
+Not tested: a reusable workflow called from another repository, which is how consumers use
+patufet.
+
+**Consequences.**
+
+- The caller changes, so it is a breaking change. Following CONTRIBUTING.md, it ships as a
+  minor marked **Breaking** once the three consumers are migrated; otherwise it needs `v2`. The
+  PRs that edit `patufet.yml` must be merged by hand (see troubleshooting.md).
+- What goes away: the label repair, the comments asking to relabel by hand, and `gh pr edit` in
+  the review and e2e tools. `review.yml` still removes the verdict labels before Claude runs, now
+  only so that the PR never shows the verdict of older code.
+- One run holds the review and the stages that follow it. "Re-run failed jobs" works within
+  that run.
+- The PR's checks still list skipped jobs, as they do today.

@@ -5,7 +5,7 @@
 | File | Kind | Purpose |
 |---|---|---|
 | `.github/workflows/implement.yml` | reusable workflow | issue with approved plan → branch + PR |
-| `.github/workflows/review.yml` | reusable workflow | wait for CI, review a PR, post report, label verdict |
+| `.github/workflows/review.yml` | reusable workflow | wait for CI, review a PR, post report, set the verdict label, return the next stage |
 | `.github/workflows/fix-review.yml` | reusable workflow | apply the latest report to the PR branch, enforce the cycle limit |
 | `.github/workflows/e2e.yml` | reusable workflow | start the app via hooks, test live with Playwright MCP |
 | `.github/workflows/mention.yml` | reusable workflow | ad-hoc `@claude` interactions |
@@ -48,42 +48,50 @@ flowchart LR
 ```mermaid
 flowchart LR
     trigger(["opened / push"]) --> wait["wait for CI<br/>(ci-checks)"]
-    subgraph pr["pull request"]
+    subgraph run["one pull_request run (jobs chained with needs:)"]
         wait --> review
-        review --> pass
-        review --> warning
-        review --> fail
-        pass --> e2e
+        review -->|pass| e2e
+        review -->|warning / fail| fix[fix-review]
+        e2e -->|fail| fixe2e[fix-e2e]
         e2e --> ok["✅ mention reviewer"]
-        e2e --> e2efail[fail]
-        warning --> fix[fix-review]
-        fail --> fix
-        e2efail --> fix
-        fix -->|push| review
-        fix --> nhr["needs-human-review<br/>(cycle limit)"]
+        review --> nhr["needs-human-review<br/>(no verdict, forced fail,<br/>CI unrelated to the diff)"]
+        fix --> nhrc["needs-human-review<br/>(cycle limit)"]
     end
+    fix -->|push| trigger
+    fixe2e -->|push| trigger
+    human(["a person adds pass / warning / fail"]) -.->|labeled| e2e
+    human -.->|labeled| fix
 ```
 
-Rules that make it work:
+Rules that make it work (decision 11):
 
+- **Claude never sets the state.** It returns its verdict as structured output
+  (`--json-schema`), or failing that the marker of the comment posted by *this* run
+  (`cycle=N` / `run=ID.ATTEMPT`, never an earlier one, `scripts/read-verdict.sh`). A
+  deterministic step then sets the label with `GITHUB_TOKEN` (`scripts/set-verdict-label.sh`).
+  Events created with `GITHUB_TOKEN` start nothing, so a label can never start a stage twice.
+- **The stages after a review run in the same run.** `review.yml` returns `next-stage`
+  (`scripts/route-review.sh`), and the caller's `fix-review` and `e2e` jobs start on it with
+  `needs: review`; a failed e2e returns `next-stage=fix-review` to the `fix-e2e` job. Every
+  stage shows in the PR's checks.
+- **Code changes close the loop through events.** The implementer opens the PR and
+  `fix-review` pushes with the Claude App token, whose events do start workflows: `opened` /
+  `synchronize` start the next review.
+- **People keep moving the flow with labels.** A label a person adds (`labeled`) starts
+  `fix-review` or `e2e` alone, in a run of its own.
 - `pass`, `warning`, `fail` are **mutually exclusive**. `review.yml` removes them before Claude
-  runs and Claude adds one. GitHub only emits a new `labeled` event — the trigger of `fix-review`
-  and `e2e` — when the label really changes; a combined `--add-label X --remove-label X` does
-  not re-fire when the verdict repeats. While a review runs, the PR has no verdict label (except
-  a fork PR, whose token is read-only).
-- Verdict labels are applied **by Claude inside the action run**, because that is the only
-  moment the Claude App token is alive (the action revokes it as its last step) and events
-  created with `GITHUB_TOKEN` never trigger other workflows. A deterministic step then
-  compares the label with Claude's **structured output** (`--json-schema`) and repairs the
-  label with `GITHUB_TOKEN` if they disagree — flagging that the next stage must be started
-  by hand in that case. No second model run is needed. When there is no structured output,
-  only the marker of the comment posted by *this* run counts (`cycle=N` / `run=ID.ATTEMPT`), never
-  an earlier one (`scripts/read-verdict.sh`).
+  runs, so while a review runs the PR has no verdict label (except a fork PR, whose token is
+  read-only).
+- **A stage never acts on a superseded commit.** A newer push cancels a review still running.
+  A review, e2e or fix-review that finds the PR moved on from the commit it started from sets
+  no label and starts nothing: the review of the new commit decides.
 - With `ci-checks`, the review waits for those checks on the PR's head commit
   (`scripts/wait-for-ci.sh`) and the reviewer gets their result and the end of the failed logs
   (`scripts/ci-section.sh`). A red CI is a `fail`, and there is one review path for it: the
   inline comments and the report go to `fix-review` like any other. If the structured verdict
-  is `pass` on a red CI, the verify step forces `fail`.
+  is `pass` on a red CI, the workflow forces `fail` and asks a person, since that report asks
+  for no change. A failure the reviewer finds unrelated to the diff (`needs_human` in its
+  result) gets `fail` and `needs-human-review`, and no fix.
 - The review cycle counter is the number of trusted comments carrying
   `<!-- patufet:review`. `fix-review` refuses to run once it reaches `max-review-cycles`
   and labels `needs-human-review` instead.

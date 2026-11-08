@@ -20,6 +20,10 @@ same issue resumes from the branch.
 The plan comment lacks the `<!-- patufet:plan -->` marker, or its author is not a
 collaborator (see security.md). For an old plan, add the marker line to the comment.
 
+**fix-review ran but did nothing: "The PR has moved on".**
+A push reached the PR after the commit this run started from. That push has its own review, which
+decides again, so fixing the old report would push a stale change. Expected; nothing to do.
+
 **The agent's push did not trigger the review.**
 Events created with `GITHUB_TOKEN` never trigger workflows. The action pushes with its own
 App token, which does. If you changed the checkout / credential setup, restore
@@ -33,20 +37,21 @@ the concurrency group.
 
 **`HTTP 401: Bad credentials` when using `steps.claude.outputs.github_token`.**
 The action revokes its App token as its last internal step, so the output is dead once the
-step is over. Anything that must trigger another workflow (labelling) has to happen inside
-the Claude run; steps after it only get `GITHUB_TOKEN`.
+step is over. Steps after it only get `GITHUB_TOKEN`. patufet does not need that token there: the
+stages after a review are jobs of the same run, chained with `needs:` (decision 11).
 
-**`fix-review` did not start after a `warning` although the label is there.**
-The label was already there when it was added, so GitHub emitted no new `labeled` event, or it
-was added with `GITHUB_TOKEN`, whose events trigger nothing. `review.yml` removes the verdict
-labels before Claude runs, so that the label Claude adds always fires, and only the App token
-inside the Claude step can start the next stage.
+**`fix-review` or `e2e` did not start after the review, although the label is there.**
+They are jobs of the review's own run: look for them in the same run, next to `review`. If they
+are not there, the caller predates v1.4.0. Its `fix-review` and `e2e` jobs need `needs: review`
+and an `if:` on `needs.review.outputs.next-stage` (see [migration.md](migration.md)). The label
+itself starts nothing, because the workflow sets it with `GITHUB_TOKEN`. A label that a person
+adds does start its stage.
 
 **The PR has no verdict label.**
-A review is running (the label is removed when it starts), or it ended without a verdict. If
-Claude finished without one, the PR also has `needs-human-review` and a comment; if the job failed
-before that, was cancelled or timed out, only its log says so. A re-run of a failed e2e that passes
-leaves no label either: add `pass` by hand, which runs e2e again.
+A review is running (the label is removed when it starts), or it ended without a verdict, or it
+found that the PR had moved on to a newer commit, whose review sets the label. If Claude finished
+without a verdict, the PR also has `needs-human-review` and a comment. If the job failed before
+that, was cancelled or timed out, only its log says so.
 
 **`Newline followed by # inside a quoted argument` in the job log.**
 Claude Code rejects a multi-line `gh pr comment` with a line starting with `#`. The prompts ask
@@ -75,14 +80,14 @@ The caller's `review` job lacks `checks: read` (state, on private repositories) 
 (logs). Add them to its `permissions:`.
 
 **`fail` with `needs-human-review` after a flaky CI failure.**
-The reviewer judged the failure unrelated to the diff, so `fix-review` pushes nothing for it and
-the flow stops there. Re-run the failed CI job and then the `review` job of that push.
+The reviewer judged the failure unrelated to the diff (`needs_human` in its result), so no
+`fix-review` starts. Re-run the failed CI job, then re-run the `review` job of that push. GitHub
+re-runs the jobs that need it too.
 
 **A comment says that the reviewer returned `pass` although CI failed.**
-The workflow changed the verdict to `fail` with `GITHUB_TOKEN`, which cannot start `fix-review`.
-Remove and re-add the `fail` label by hand. The `pass` label did exist for a moment, so an e2e run
-may have started; ignore its result. If it passes, it says that the PR is not ready for merge,
-because the PR is no longer labelled `pass`.
+The workflow set `fail` and `needs-human-review` and started nothing, because that report asks for
+no change. Fix the cause and push, or remove and re-add `fail` to let fix-review try with the
+report it has. No e2e run starts, because e2e only follows a `pass` that the workflow set.
 
 ## E2E
 
@@ -93,7 +98,7 @@ already has Chromium, set `install-playwright: false`.
 
 **`e2e up-script not found`.**
 The caller has the e2e job but the hook was not created. Either add
-`.github/patufet/e2e-up.sh` (see e2e.md) or delete the job from the caller.
+`.github/patufet/e2e-up.sh` (see e2e.md) or delete the `e2e` and `fix-e2e` jobs from the caller.
 
 **The app registers a user then gets 403.**
 Project-specific readiness/seeding logic belongs to your hook; make it idempotent and
@@ -123,7 +128,7 @@ that actionlint does not know yet; `self-check.yml` ignores exactly that message
 
 **Re-running the bootstrap did not update my caller.**
 By design: it never modifies an existing file. Edit `.github/workflows/patufet.yml` by hand
-(e.g. to add the e2e job, copy it from `templates/.github/workflows/patufet.yml`).
+(e.g. to add the e2e stage, copy the `e2e` and `fix-e2e` jobs from `templates/.github/workflows/patufet.yml`).
 
 **Nothing runs at all.**
 Check, in order: the Claude GitHub App is installed on the repository; the secret exists;

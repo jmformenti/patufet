@@ -1,8 +1,10 @@
 # patufet — fix-review
 #
 # Applies the corrections requested by the latest automatic review report to
-# the PR branch. Called when the PR is labelled "warning" or "fail". Gives up
-# after max-review-cycles and hands the PR to a human.
+# the PR branch. The caller starts it with `needs:` after a review or an e2e run
+# that asks for it, or when a person labels the PR "warning" or "fail"
+# (decision 11). Does nothing if the PR has moved on since that commit. Gives
+# up after max-review-cycles and hands the PR to a human.
 name: patufet / fix-review
 
 on:
@@ -45,7 +47,7 @@ on:
         type: string
         default: Bash,Edit,Write,Read,Glob,Grep
       allowed-bots:
-        description: Bots whose events may trigger the run (the reviewer labels as "claude")
+        description: Bots whose events may trigger the run (the implementer and fix-review push as "claude")
         type: string
         default: claude
       claude-args-extra:
@@ -114,8 +116,27 @@ jobs:
         env:
           MAX_CYCLES: ${{ inputs.max-review-cycles }}
 
+      # A push since the commit this run started from has its own review coming,
+      # which decides again. Fixing the old report would push a stale change.
+      - name: Decide whether to fix
+        id: gate
+        env:
+          COUNT: ${{ steps.cycles.outputs.count }}
+          MAX_CYCLES: ${{ inputs.max-review-cycles }}
+          STARTED_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          head=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
+          if [ "$head" != "$STARTED_SHA" ]; then
+            echo "The PR has moved on from ${STARTED_SHA:0:7} to ${head:0:7}; its new review decides again. Nothing to fix."
+            echo "state=moved" >> "$GITHUB_OUTPUT"
+          elif [ "$COUNT" -ge "$MAX_CYCLES" ]; then
+            echo "state=limit" >> "$GITHUB_OUTPUT"
+          else
+            echo "state=fix" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Hand over to a human if the cycle limit is reached
-        if: fromJSON(steps.cycles.outputs.count) >= fromJSON(inputs.max-review-cycles)
+        if: steps.gate.outputs.state == 'limit'
         env:
           LABEL_NHR: ${{ inputs.label-needs-human-review }}
           MAX_CYCLES: ${{ inputs.max-review-cycles }}
@@ -128,18 +149,18 @@ jobs:
           gh pr comment "$PR_NUMBER" --body "⚠️ patufet: $MAX_CYCLES automatic review cycles reached without a \`pass\` verdict. Manual review needed.$mention"
 
       - name: Configure git credentials for push
-        if: fromJSON(steps.cycles.outputs.count) < fromJSON(inputs.max-review-cycles)
+        if: steps.gate.outputs.state == 'fix'
         run: gh auth setup-git
 
       - name: Set up Java
-        if: inputs.java-version != '' && fromJSON(steps.cycles.outputs.count) < fromJSON(inputs.max-review-cycles)
+        if: inputs.java-version != '' && steps.gate.outputs.state == 'fix'
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: ${{ inputs.java-version }}
 
       - name: Set up Node.js
-        if: inputs.node-version != '' && fromJSON(steps.cycles.outputs.count) < fromJSON(inputs.max-review-cycles)
+        if: inputs.node-version != '' && steps.gate.outputs.state == 'fix'
         uses: actions/setup-node@v7
         with:
           node-version: ${{ inputs.node-version }}
@@ -151,7 +172,7 @@ jobs:
       # only, so the agent never acts on instructions planted by a stranger
       - name: Render the prompt
         id: prompt
-        if: fromJSON(steps.cycles.outputs.count) < fromJSON(inputs.max-review-cycles)
+        if: steps.gate.outputs.state == 'fix'
         env:
           TPL_pr: ${{ github.event.pull_request.number }}
           TPL_repository: ${{ github.repository }}
@@ -168,7 +189,7 @@ jobs:
 
       - name: Run Claude Code (apply the review)
         id: claude
-        if: fromJSON(steps.cycles.outputs.count) < fromJSON(inputs.max-review-cycles)
+        if: steps.gate.outputs.state == 'fix'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
