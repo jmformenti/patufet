@@ -91,6 +91,24 @@ creates no check at all, so the review would wait until the timeout on every PR 
 touch those paths. The same goes for a misspelled name; the job log then lists the checks it
 did see.
 
+**CI outside GitHub Actions** (Jenkins, CircleCI, Buildkite...) works with limits:
+
+- The bootstrap does not detect it, because it only reads `.github/workflows/`. Add its names to
+  `ci-checks` by hand, as the PR's checks box shows them.
+- The review reads check runs only. A CI that reports commit statuses instead (older
+  integrations, some Jenkins setups) creates no check run, so the review would wait until the
+  timeout on every PR: leave those names out. This lists what the review can see:
+
+  ```bash
+  gh api "repos/{owner}/{repo}/commits/<sha>/check-runs" --jq '.check_runs[].name'
+  ```
+
+- When such a check fails, the reviewer gets its name, its conclusion and its link, but no log:
+  only the logs of GitHub Actions jobs can be downloaded.
+- The implementer and fix-review only reproduce the workflows in `.github/workflows/`. Make sure
+  `AGENTS.md`, `CLAUDE.md` or the README describe how to build and test, or they cannot check
+  their changes the way the external CI will.
+
 **The caller's `review` job needs two more permissions**:
 
 ```yaml
