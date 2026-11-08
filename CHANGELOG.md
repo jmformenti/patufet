@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.4.0 — 2026-11-08
+
 - **Breaking:** the stages after a review run in the review's own run, chained with `needs:`,
   and Claude no longer sets labels (decision 11). `review.yml` and `e2e.yml` return a new
   `next-stage` output. The caller's `fix-review` and `e2e` jobs need `needs: review` and a new
