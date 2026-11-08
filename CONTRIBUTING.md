@@ -46,7 +46,13 @@ To add a test, add a fixture (a real API response, trimmed) and a few `eq` / `ha
    git tag "$version" && git tag -f v1 "$version"
    git push origin "$version" && git push -f origin v1
    ```
-3. Consumers on `@v1` get it on their next run; tell the ones pinned to `@v1.x.y`.
+3. Create the GitHub release, with that version's section of `CHANGELOG.md` as notes:
+   ```bash
+   notes=$(mktemp)
+   awk -v h="## $version " 'index($0, h) == 1 {f=1; next} /^## v/ {f=0} f' CHANGELOG.md | sed '/./,$!d' > "$notes"
+   gh release create "$version" --verify-tag --title "$version" --notes-file "$notes" --latest
+   ```
+4. Consumers on `@v1` get it on their next run; tell the ones pinned to `@v1.x.y`.
 
 **Breaking changes** (renamed input, changed marker, new required file) normally bump the
 major (`v2`, new moving tag `v2`) with migration steps in the changelog. While the only known
