@@ -50,7 +50,7 @@ Then, for each case that applies, do the following and mention it in your final 
   `to-refine`, `blocked`, `pass`, `warning`, `fail`, `needs-human-review`) with another
   meaning, e.g. project boards. The bootstrap leaves existing labels untouched, but the flow
   reacts to those names: a `pass` put on a PR for any other reason starts the e2e stage.
-  Rename patufet's through the `label-*` inputs (the prompts follow them) and update the
+  Rename patufet's through the `label-*` inputs (the workflows follow them) and update the
   caller's `if:` conditions to match; `/plan-issue` reads the name of the ready label from
   the caller. See [docs/customization.md](docs/customization.md#renaming-the-labels).
 - **Another bot labels pull requests** (`actions/labeler`, release-drafter...). Check that

@@ -108,7 +108,7 @@ the human text:
 |---|---|---|
 | `<!-- patufet:plan -->` | you (`/plan-issue`) | implement, review, e2e (`scripts/find-plan.sh`) |
 | `<!-- patufet:review cycle=N verdict=V -->` | reviewer | review (fallback verdict), fix-review, cycle counter |
-| `<!-- patufet:e2e run=ID.ATTEMPT verdict=V -->` | e2e tester | e2e (fallback verdict) |
+| `<!-- patufet:e2e run=ID.ATTEMPT verdict=V -->` | e2e tester | e2e (fallback verdict), fix-e2e (the report to apply after a failed e2e) |
 
 Only comments by `OWNER` / `MEMBER` / `COLLABORATOR` authors or by the `claude[bot]` /
 `github-actions[bot]` bots are considered (see [security.md](security.md)).
@@ -118,11 +118,12 @@ Only comments by `OWNER` / `MEMBER` / `COLLABORATOR` authors or by the `claude[b
 | Workflow | Group | Cancel in progress |
 |---|---|---|
 | implement | `patufet-implement-<repo>-<issue>` | no (a running implementation is never killed) |
-| fix-review | `patufet-implement-<repo>-pr-<pr>` | no |
+| fix-review (and the caller's fix-e2e job) | `patufet-implement-<repo>-pr-<pr>` | no (a fix in progress finishes; one that finds the PR moved on does nothing) |
 | review | `patufet-review-<repo>-<pr>` | yes (a review of a superseded diff must not label after a newer one; a new push also ends the wait for the previous commit's CI) |
 | e2e | `patufet-e2e-<repo>-<pr>` | yes |
 
-Different issues / PRs run in parallel.
+Different issues / PRs run in parallel. Jobs that `need` a cancelled review are skipped, so a
+superseded review never starts fix-review or e2e.
 
 ## Cost
 
@@ -131,7 +132,8 @@ Per issue, in Claude runs (each bounded by `max-turns`):
 - 1 × implement (`max-turns` 400 by default; a medium full-stack issue used ~200 turns in
   practice, a small one far fewer).
 - 1 × review per push to the PR (default `max-turns` 400).
-- up to `max-review-cycles − 1` × fix-review (default limit 10 → at most 9 fix runs).
+- up to `max-review-cycles − 1` × fix-review, fix-e2e included (default limit 10 → at most 9
+  fix runs).
 - 1 × e2e per `pass` (optional, default `max-turns` 200).
 
 Levers: `max-review-cycles`, `max-turns`, `model` (e.g. a cheaper model for review), keeping

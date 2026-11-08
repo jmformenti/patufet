@@ -6,20 +6,49 @@ that matter: **approving the plan** and **merging**.
 
 ```mermaid
 flowchart LR
-    issue([issue]) -->|"/plan-issue"| plan[plan approved]
-    plan -->|label| implement
-    implement --> pr[PR]
+    issue([issue])
+    plan(["`plan approved
+    _comment on the issue_`"])
+    implement[implement]
+    pr([PR])
+    ci[["your CI (optional)"]]
+    review[review]
+    fix[fix-review]
+    e2e["e2e (optional)"]
+    ready(["`ready for merge
+    _you review and merge_`"])
+
+    issue -->|"/plan-issue"| plan
+    plan -->|"ready-to-implement"| implement
+    implement --> pr
     pr --> review
-    review -->|"warning / fail"| fix[fix-review]
+    pr --> ci
+    ci -.->|"waits for ci-checks"| review
+    review -->|"warning / fail"| fix
     fix -->|push| pr
-    review -->|pass| e2e["e2e (optional)"]
-    e2e -->|✅| human[human review + merge]
+    review -->|pass| e2e
+    e2e -->|fail| fix
+    e2e -->|✅| ready
+
+    classDef endpoint fill:#dafbe1,stroke:#1a7f37,color:#0f3d1f
+    classDef state fill:#f6f8fa,stroke:#8c959f,color:#1f2328
+    classDef stage fill:#ddf4ff,stroke:#0969da,color:#0a3069
+    classDef external fill:#ffffff,stroke:#8c959f,color:#59636e,stroke-dasharray:5 5
+    class issue,ready endpoint
+    class plan,pr state
+    class implement,review,fix,e2e stage
+    class ci external
 ```
+
+Rounded boxes are states (green: where the flow starts and ends); blue boxes are the stages
+patufet runs. The dashed box is your repository's own CI, if it has one: patufet does not change
+it, the review waits for its checks and a red CI is always `fail`. Without CI the review starts
+right away, and the agents run the tests that `AGENTS.md`, `CLAUDE.md` or the README describe.
 
 Everything runs on `anthropics/claude-code-action`; this repository adds the **state machine**
 (labels), the **review → fix loop** with a cycle limit, the **plan gate**, an optional **live
 e2e stage** with Playwright, and the guards that make it safe and cheap enough to leave
-unattended. Consumer repositories hold two short caller workflows (~120 lines of YAML,
+unattended. Consumer repositories hold two short caller workflows (~160 lines of YAML,
 mostly comments and permissions) and a few Markdown files.
 
 ## TL;DR
@@ -94,9 +123,9 @@ Then:
 |---|---|---|---|
 | Plan | you, `/plan-issue N` locally | Claude Code + you | comment `<!-- patufet:plan -->` + label `ready-to-implement` |
 | Implement | label `ready-to-implement` | `implement.yml` | branch `agent/issue-N`, tests green, PR with `Closes #N` — or draft PR + `to-refine` when it has a question |
-| Review | PR opened / pushed / ready | `review.yml` | waits for CI (`ci-checks`), then inline comments, one report comment, label `pass` / `warning` / `fail`; a red CI is always `fail` |
-| Fix | label `warning` / `fail` | `fix-review.yml` | fixes pushed to the PR branch → review again (max `max-review-cycles`, then `needs-human-review`) |
-| E2E | label `pass` | `e2e.yml` (optional) | app started by your `e2e-up.sh`, tested live with Playwright; `fail` sends it back, success mentions the reviewer |
+| Review | PR opened / pushed / ready | `review.yml` | waits for CI (`ci-checks`), then inline comments and one report comment; the workflow sets the label `pass` / `warning` / `fail` from Claude's verdict; a red CI is always `fail` |
+| Fix | verdict `warning` / `fail`, in the review's own run (`needs:`); or you add that label | `fix-review.yml` | fixes pushed to the PR branch → review again (max `max-review-cycles`, then `needs-human-review`) |
+| E2E | verdict `pass`, in the review's own run; or you add `pass` | `e2e.yml` (optional) | app started by your `e2e-up.sh`, tested live with Playwright; `fail` runs `fix-e2e` in the same run, success mentions the reviewer |
 | Merge | you | — | — |
 
 The full state machine, markers and concurrency rules: [docs/architecture.md](docs/architecture.md).
@@ -104,7 +133,7 @@ The full state machine, markers and concurrency rules: [docs/architecture.md](do
 ## Configuration
 
 Every knob is an input of the reusable workflows (language, model, `max-turns`, allowed tools,
-label names, test command, cycle limit, hook paths...). Project-specific knowledge goes in
+label names, CI checks to wait for, cycle limit, hook paths...). Project-specific knowledge goes in
 Markdown files appended to the base prompts. See [docs/customization.md](docs/customization.md).
 
 ## Cost and safety — read before enabling

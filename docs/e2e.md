@@ -1,11 +1,13 @@
 # Live e2e stage
 
-Optional. `e2e.yml` runs when a PR gets the `pass` label: it starts your application on the
+Optional. `e2e.yml` runs after a review whose verdict is `pass`, as a job of the same run
+(`needs: review`), or when a person adds the `pass` label. It starts your application on the
 GitHub runner through **your** hook script, installs the Playwright Chromium browser, lets
 Claude drive the app through the Playwright MCP server, and reads the verdict.
 
 Enable it only if the whole application can be started on `ubuntu-latest` within the job
-timeout (Docker Compose, a single `npm start`, an embedded DB...). Otherwise skip the job —
+timeout (Docker Compose, a single `npm start`, an embedded DB...). Otherwise remove the `e2e` and
+`fix-e2e` jobs from the caller —
 the flow ends at the code review `pass` and the reviewer merges.
 
 ## Hook contract
@@ -13,7 +15,7 @@ the flow ends at the code review `pass` and the reviewer merges.
 ### `e2e-up.sh` (input `up-script`, default `.github/patufet/e2e-up.sh`)
 
 - Runs with `bash`, from the repository root, with the PR head commit that got the `pass`
-  label checked out (not a later push).
+  verdict checked out (not a later push).
 - Must **start** the app, **wait** until it is usable and **seed** the test data.
 - Must **exit non-zero** if the app is not usable — the job fails without posting a verdict.
 - Must **append `KEY=VALUE` lines** to the file `$PATUFET_E2E_ENV`. They are rendered

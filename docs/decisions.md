@@ -21,6 +21,9 @@ workflow. actionlint does not know these properties yet and is told to ignore th
 prompts receive them as placeholders; the caller's `if:` conditions are the one place a
 rename must be repeated.
 
+Since decision 11 the labels are still the state, and a label a person adds still starts its
+stage, but the automatic transitions after a review are `needs:` jobs, not label events.
+
 ## 3. Claude applies the verdict label inside its own run
 
 **Context.** Events created with `GITHUB_TOKEN` never trigger workflows, and the action
