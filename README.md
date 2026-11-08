@@ -7,13 +7,15 @@ that matter: **approving the plan** and **merging**.
 ```mermaid
 flowchart LR
     issue([issue])
-    plan(["plan approved<br/><small>comment on the issue</small>"])
+    plan(["`plan approved
+    _comment on the issue_`"])
     implement[implement]
     pr([PR])
     review[review]
     fix[fix-review]
     e2e["e2e (optional)"]
-    ready(["ready for merge<br/><small>you review and merge</small>"])
+    ready(["`ready for merge
+    _you review and merge_`"])
 
     issue -->|"/plan-issue"| plan
     plan -->|"ready-to-implement"| implement
@@ -25,13 +27,16 @@ flowchart LR
     e2e -->|fail| fix
     e2e -->|✅| ready
 
+    classDef endpoint fill:#dafbe1,stroke:#1a7f37,color:#0f3d1f
     classDef state fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     classDef stage fill:#ddf4ff,stroke:#0969da,color:#0a3069
-    class issue,plan,pr,ready state
+    class issue,ready endpoint
+    class plan,pr state
     class implement,review,fix,e2e stage
 ```
 
-Grey rounded boxes are states; blue boxes are the stages patufet runs.
+Rounded boxes are states (green: where the flow starts and ends); blue boxes are the stages
+patufet runs.
 
 Everything runs on `anthropics/claude-code-action`; this repository adds the **state machine**
 (labels), the **review → fix loop** with a cycle limit, the **plan gate**, an optional **live
