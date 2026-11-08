@@ -26,14 +26,16 @@ Pull requests from forks never receive secrets, so they cannot run the Claude ac
 | Agent | Input it acts on | Trust filter |
 |---|---|---|
 | implement | the plan | latest issue comment with `<!-- patufet:plan -->` whose author is `OWNER` / `MEMBER` / `COLLABORATOR` (`scripts/find-plan.sh`). A plan comment by anyone else is ignored and the run is blocked. |
-| fix-review | the review report + inline comments | pre-fetched by the workflow from trusted authors only (collaborators, `claude[bot]`, `github-actions[bot]`); the prompt tells the agent to ignore any other source |
+| fix-review | the latest review or e2e report + inline comments | pre-fetched by the workflow from trusted authors only (collaborators, `claude[bot]`, `github-actions[bot]`); the prompt tells the agent to ignore any other source |
 | review, e2e | the PR diff, the issue and plan (review also the end of the failed CI logs; e2e also the pages of the running app) | checkout with `contents: read`; tools limited to `gh pr view/diff/comment` and `gh issue view` (no `gh pr edit`, no `gh api`, no `gh pr merge`); the verdict is a structured result that a deterministic step turns into a label; plan filtered as above |
 | mention | the comment | gated by the action's write-permission check |
 
 Untrusted text still reaches the agents: the **PR diff** itself (review, e2e), the **failed CI
 logs** (review; the code under review prints them, so they are no more trusted than the diff, and
 GitHub masks the secrets it knows in them) and the **issue body** (only through the plan you
-write, which you control). The reviewer's report then reaches `fix-review`, as it always has.
+write, which you control). The reviewer's report then reaches `fix-review`, as it always has,
+and so does the e2e tester's report after a failed live test, which was written after reading pages
+rendered by the PR's code.
 On a public repository, assume that a stranger can plant instructions in an issue body; the plan gate means you have read
 it before anything with write access runs.
 

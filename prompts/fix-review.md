@@ -1,10 +1,10 @@
-Pull request #{{pr}} of the repository `{{repository}}` received a review verdict other than
-`pass`. The PR branch (`{{branch}}`) is already checked out.
+Pull request #{{pr}} of the repository `{{repository}}` received a verdict other than `pass`,
+from the code review or from the live e2e test. The PR branch (`{{branch}}`) is already checked out.
 
 Write every comment in this language: **{{language}}**. Commit messages follow the repository's
 conventions (default: English, Conventional Commits).
 
-## Review report to address
+## Report to address (the latest code review or live e2e test)
 
 <review-report>
 {{review_report}}

@@ -58,6 +58,9 @@ export GH_STUB_ISSUE_COMMENTS="$fx/review-comments.json"
 if "$s/find-plan.sh" octo/app 3 >/dev/null 2>&1; then fail "no trusted plan → exit 1"; else pass "no trusted plan → exit 1"; fi
 eq "cycles count trusted reports with the exact marker only" 4 "$("$s/count-review-cycles.sh" octo/app 7)"
 has "latest trusted report" "cycle=11 verdict=pass" "$("$s/find-review-report.sh" octo/app 7)"
+jq '.[:8]' "$fx/review-comments.json" > "$work/e2e-last.json"
+has "a failed e2e after the review is the report to fix" "patufet:e2e run=55.1 verdict=fail" "$(GH_STUB_ISSUE_COMMENTS="$work/e2e-last.json" "$s/find-review-report.sh" octo/app 7)"
+eq "cycles still count review reports only" 3 "$(GH_STUB_ISSUE_COMMENTS="$work/e2e-last.json" "$s/count-review-cycles.sh" octo/app 7)"
 
 echo "# find-inline-comments.sh"
 export GH_STUB_PR_COMMENTS="$fx/inline-comments.json"

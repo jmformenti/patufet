@@ -18,6 +18,8 @@
 - A review, e2e run or fix-review that finds the PR moved on from its commit sets no label and
   starts nothing.
 - A re-run of a failed e2e puts `pass` back first, so a passing re-run says that the PR is ready.
+- Fix: after a failed e2e, fix-review applies the e2e report. Before, it read only the latest
+  review report, which said `pass`, so it had nothing to fix.
 
 ## v1.3.0 — 2026-11-02
 
