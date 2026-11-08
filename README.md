@@ -11,6 +11,7 @@ flowchart LR
     _comment on the issue_`"])
     implement[implement]
     pr([PR])
+    ci[["your CI (optional)"]]
     review[review]
     fix[fix-review]
     e2e["e2e (optional)"]
@@ -21,6 +22,8 @@ flowchart LR
     plan -->|"ready-to-implement"| implement
     implement --> pr
     pr --> review
+    pr --> ci
+    ci -.->|"waits for ci-checks"| review
     review -->|"warning / fail"| fix
     fix -->|push| pr
     review -->|pass| e2e
@@ -30,13 +33,17 @@ flowchart LR
     classDef endpoint fill:#dafbe1,stroke:#1a7f37,color:#0f3d1f
     classDef state fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     classDef stage fill:#ddf4ff,stroke:#0969da,color:#0a3069
+    classDef external fill:#ffffff,stroke:#8c959f,color:#59636e,stroke-dasharray:5 5
     class issue,ready endpoint
     class plan,pr state
     class implement,review,fix,e2e stage
+    class ci external
 ```
 
 Rounded boxes are states (green: where the flow starts and ends); blue boxes are the stages
-patufet runs.
+patufet runs. The dashed box is your repository's own CI, if it has one: patufet does not change
+it, the review waits for its checks and a red CI is always `fail`. Without CI the review starts
+right away, and the agents run the tests that `AGENTS.md`, `CLAUDE.md` or the README describe.
 
 Everything runs on `anthropics/claude-code-action`; this repository adds the **state machine**
 (labels), the **review → fix loop** with a cycle limit, the **plan gate**, an optional **live
