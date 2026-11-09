@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- The review finds the CI of the PR's commit on its own: every workflow that runs on it for a
+  `pull_request` event, except the caller's own (decision 12). A workflow left out by `paths:`
+  filters is not waited for, and a renamed job needs no change.
+- `ci-checks` is deprecated and ignored, with a warning in the log: remove it from the caller. The
+  bootstrap no longer fills it in; it lists the workflows the review will wait for, or warns that
+  there are none. `scripts/detect-ci-checks.sh` is replaced by `scripts/detect-pr-ci.sh`.
+- The review's job no longer needs `checks: read`; `actions: read` is enough.
+- A skipped CI job still counts as passed, but the reviewer is told that it did not run.
+- With no CI on the commit, the review says so instead of only reading the diff.
+- CI outside GitHub Actions is no longer waited for. See `docs/migration.md`.
+
 ## v1.4.0 — 2026-11-08
 
 - **Breaking:** the stages after a review run in the review's own run, chained with `needs:`,

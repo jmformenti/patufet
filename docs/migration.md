@@ -19,7 +19,7 @@ This is the path the original project (`habitus-trainer`) followed.
    - implementer hints → `.github/patufet/implement.md`;
    - the e2e readiness/seeding shell → `.github/patufet/e2e-up.sh` / `e2e-down.sh`, and
      what to always test → `.github/patufet/e2e.md`.
-3. Set `ci-checks`, `human-reviewer`, `language` in the caller.
+3. Set `human-reviewer` and `language` in the caller.
 4. Open issues whose plan comment has no marker: edit the comment and prepend the line
    `<!-- patufet:plan -->`.
 5. Update the local `/plan-issue` command (`.claude/commands/plan-issue.md`) so it writes the
@@ -33,6 +33,21 @@ This is the path the original project (`habitus-trainer`) followed.
 - On `@v1`: nothing to do for compatible releases; read `CHANGELOG.md` for new inputs.
 - Major bump: the changelog lists the renamed inputs / new files; update the caller and the
   extension files, then change `@v1` → `@v2`.
+
+### To v1.5.0
+
+Compatible: nothing breaks, but `ci-checks` is now ignored, with a warning in the review's log. The
+review waits for every workflow that runs on the PR's commit (decision 12). In
+`.github/workflows/patufet.yml`:
+
+1. `review` job: remove `ci-checks` and the comment above it. If it listed only some of the jobs of
+   your workflows on pull requests, check that the others may be waited for too, since a red one
+   is now a `fail`.
+2. `review` job: keep `actions: read`. You can remove `checks: read`, which is no longer used.
+3. If your CI runs outside GitHub Actions, the review no longer waits for it. See
+   [The CI-aware review](customization.md#the-ci-aware-review).
+
+As with any PR that edits the caller, this one gets no automatic review.
 
 ### To v1.4.0 (breaking)
 

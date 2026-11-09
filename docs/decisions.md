@@ -126,6 +126,8 @@ the App token outside Claude and a new comment format for `fix-review`.
 - The issue's `--required` idea was left out: `ci-checks` is explicit and works without branch
   protection.
 
+*Since decision 12 the review finds the CI on its own: `ci-checks` is no longer read.*
+
 ## 11. Stages chain with `needs:` inside one run; Claude never sets the state
 
 **Status.** Accepted on 2026-11-08, implemented for v1.4.0. It supersedes decisions 3 and 4
@@ -198,3 +200,49 @@ patufet.
 - One run holds the review and the stages that follow it. "Re-run failed jobs" works within
   that run.
 - The PR's checks still list skipped jobs, as they do today.
+
+## 12. The review finds the CI of the commit; no `ci-checks`
+
+**Status.** Accepted on 2026-11-08, for v1.5.0. It amends decision 10: the review still waits for
+CI by polling, but no longer by name.
+
+**Context.** `ci-checks` listed the names of the checks to wait for. They had to match exactly, a
+matrix or a reusable workflow had to be added by hand, a workflow left out by `paths:` filters made
+every review wait until the timeout, and a renamed job went stale without anybody noticing. In the
+three consumers, `ci-checks` was exactly the list of jobs of the only workflow that runs on pull
+requests.
+
+**Decision.** The CI of a commit is every workflow run that GitHub started for it on a
+`pull_request` event, except the caller's own workflow, whose path comes from
+`github.workflow_ref` (`scripts/wait-for-ci.sh`). When a workflow ran more than once on the
+commit, its latest run counts. Its jobs are the checks, and the reviewer gets their result and the
+logs of the failed ones. With no such run, after one more look, the review starts at once.
+`ci-checks` is ignored with a warning, and the bootstrap only warns when nothing runs CI on pull
+requests (`scripts/detect-pr-ci.sh`).
+
+**Rejected.**
+
+- Keeping `ci-checks` as an override. No consumer needed it, and it is the source of the errors
+  above.
+- An exclusion list (`ci-ignore`). No consumer has a non-CI workflow on pull requests. It can be
+  added if one ever needs it.
+- The required status checks of the branch rules. Most repositories have none, and reading a
+  classic branch protection needs admin rights.
+- Waiting for check runs or commit statuses of other apps. Their names would have to be configured
+  again, and their logs cannot be read.
+
+**Evidence.** A spike on the sandbox repository on 2026-11-08:
+
+- The CI run already existed when a workflow of the same event started.
+- Filtering by event and leaving out the own workflow found exactly `ci.yml`, both green and red.
+- The failed job's log could be read with `actions: read`, on a private repository, without
+  `checks: read`.
+
+**Consequences.**
+
+- Nothing to configure, and `checks: read` is no longer needed.
+- Every workflow on pull requests is waited for, even one that is not CI: a slow one delays the
+  review, and a failing one makes it `fail`.
+- CI outside GitHub Actions is no longer waited for. With `ci-checks` it could be, with limits.
+- A job skipped on the commit counts as passed, but the reviewer is told that it did not run.
+

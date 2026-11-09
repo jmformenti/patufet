@@ -1,0 +1,23 @@
+{
+ "total_count": 2,
+ "workflow_runs": [
+  {
+   "id": 300,
+   "name": "Extra",
+   "path": ".github/workflows/ext.yml",
+   "event": "pull_request",
+   "status": "completed",
+   "conclusion": "failure",
+   "head_sha": "abc123"
+  },
+  {
+   "id": 101,
+   "name": "patufet",
+   "path": ".github/workflows/patufet.yml",
+   "event": "pull_request",
+   "status": "in_progress",
+   "conclusion": null,
+   "head_sha": "abc123"
+  }
+ ]
+}

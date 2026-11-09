@@ -136,60 +136,65 @@ has "e2e without plan" "gh issue view 5" "$("$s/plan-section.sh" e2e 5 "$work/em
 has "no issue" "not linked to any issue" "$("$s/plan-section.sh" review "" "$work/empty.md")"
 
 echo "# wait-for-ci.sh"
-export PATUFET_CI_POLL_SECONDS=0
-wait_ci() {  # wait_ci <names> <timeout-minutes>: prints the state line
+export PATUFET_CI_POLL_SECONDS=0 GH_STUB_JOBS_DIR="$fx/jobs"
+wait_ci() {  # wait_ci <runs fixtures, colon-separated> <timeout-minutes>: prints the state line
   : > "$GH_STUB_LOG"
-  "$s/wait-for-ci.sh" octo/app abc123 "$1" "$2" "$work/ci.json" 2> "$work/ci.err"
+  GH_STUB_WORKFLOW_RUNS="$1" "$s/wait-for-ci.sh" octo/app abc123 .github/workflows/patufet.yml "$2" "$work/ci.json" 2> "$work/ci.err"
 }
-ci_state() { jq -r --arg n "$1" '.checks[] | select(.name == $n) | .state' "$work/ci.json"; }
-export GH_STUB_CHECK_RUNS="$fx/check-runs-running.json:$fx/check-runs-failed.json"
-eq "polls until every listed check has finished" "state=success" "$(wait_ci 'Frontend Build, test (ubuntu, 21)' 5)"
-eq "... on the second poll" 2 "$(grep -c check-runs "$GH_STUB_LOG")"
-eq "skipped counts as passed" success "$(ci_state 'Frontend Build')"
-eq "a comma inside parentheses belongs to the name" success "$(ci_state 'test (ubuntu, 21)')"
-eq "the review's own check is not waited for" 2 "$(jq '.checks | length' "$work/ci.json")"
-eq "two lines are two names" "state=success" "$(wait_ci $'Frontend Build\ntest (ubuntu, 21)' 5)"
-eq "with several lines, a comma stays in the name" "state=success" "$(wait_ci $'Lint, style\nFrontend Build\n' 5)"
-eq "... and it is one check" 2 "$(jq '.checks | length' "$work/ci.json")"
-eq "a single line with a final newline keeps its comma" "state=success" "$(wait_ci $'Lint, style\n' 5)"
-eq "... and it is one check" "Lint, style" "$(jq -r '.checks[].name' "$work/ci.json")"
-eq "nested parentheses stay in the name" "state=success" "$(wait_ci 'Frontend Build, test (Node.js (20), ubuntu)' 5)"
-eq "... and they are two checks" 2 "$(jq '.checks | length' "$work/ci.json")"
-eq "an unmatched parenthesis stays in the name" "state=success" "$(wait_ci 'Build (debug' 5)"
-eq "a failure among repeated names wins" "state=failure" "$(wait_ci 'Backend Tests' 5)"
-eq "job id from the details URL" 201 "$(jq -r '.checks[0].job_id' "$work/ci.json")"
-eq "timed_out is a failure; external CI has no job id" "state=failure" "$(wait_ci 'External CI' 5)"
-eq "external CI has no job id" null "$(jq -r '.checks[0].job_id' "$work/ci.json")"
-export GH_STUB_CHECK_RUNS="$fx/check-runs-running.json"
-eq "still running at the deadline" "state=timeout" "$(wait_ci 'Backend Tests' 0)"
-eq "a name never seen also ends in timeout" "state=timeout" "$(wait_ci 'Bakend Tests' 0)"
-has "... and the log names the checks seen" "Backend Tests, review" "$(cat "$work/ci.err")"
-export GH_STUB_CHECK_RUNS="$fx/check-runs-failed.json"
-eq "a failure wins over a pending check at the deadline" "state=failure" "$(wait_ci 'Backend Tests, review' 0)"
-eq "... the pending one is reported as such" pending "$(ci_state review)"
-eq "missing permission: no wait until the deadline" "state=unavailable" "$(GH_STUB_CHECK_RUNS_ERROR='gh: Resource not accessible by integration (HTTP 403)' wait_ci 'Backend Tests' 30)"
-eq "... after a single call" 1 "$(grep -c check-runs "$GH_STUB_LOG")"
-eq "transient errors are retried, then give up" "state=unavailable" "$(GH_STUB_CHECK_RUNS_ERROR='gh: HTTP 502' wait_ci 'Backend Tests' 30)"
-eq "... after five calls" 5 "$(grep -c check-runs "$GH_STUB_LOG")"
-unset PATUFET_CI_POLL_SECONDS GH_STUB_CHECK_RUNS
+wf_state() { jq -r --arg n "$1" '.workflows[] | select(.name == $n) | .state' "$work/ci.json"; }
+job_state() { jq -r --arg n "$1" '.checks[] | select(.name == $n) | .state' "$work/ci.json"; }
+eq "polls until every workflow of the commit has finished" "state=failure" "$(wait_ci "$fx/runs-running.json:$fx/runs-failed.json" 5)"
+eq "... on the second poll" 2 "$(grep -c 'actions/runs?' "$GH_STUB_LOG")"
+has "... asking for the commit's pull_request runs" "actions/runs?head_sha=abc123&event=pull_request" "$(cat "$GH_STUB_LOG")"
+eq "the caller's own workflow is not waited for" "" "$(wf_state patufet)"
+eq "a run of another event is not CI of the PR" 2 "$(jq '.workflows | length' "$work/ci.json")"
+eq "the latest run of a workflow wins" success "$(wf_state Lint)"
+eq "the jobs are the checks" "failure success success" "$(jq -r '[.checks[].state] | join(" ")' "$work/ci.json")"
+eq "a skipped job counts as passed" success "$(job_state 'Frontend Build')"
+eq "a failed job carries its id, for its log" 201 "$(jq -r '.checks[] | select(.name == "Backend Tests") | .job_id' "$work/ci.json")"
+eq "green" "state=success" "$(wait_ci "$fx/runs-green.json" 5)"
+eq "a skipped workflow counts as passed" success "$(wf_state Lint)"
+eq "nothing runs CI on the commit" "state=none" "$(wait_ci "$fx/runs-none.json" 5)"
+eq "... after looking once more" 2 "$(grep -c 'actions/runs?' "$GH_STUB_LOG")"
+eq "... and no job is reported" 0 "$(jq '.checks | length' "$work/ci.json")"
+eq "a workflow that appears on the second look is waited for" "state=failure" "$(wait_ci "$fx/runs-none.json:$fx/runs-failed.json" 5)"
+eq "still running at the deadline" "state=timeout" "$(wait_ci "$fx/runs-running.json" 0)"
+eq "... reported as pending" pending "$(wf_state CI)"
+eq "a failure wins over a pending workflow at the deadline" "state=failure" "$(wait_ci "$fx/runs-half.json" 0)"
+eq "... the pending one is reported as such" pending "$(wf_state Lint)"
+eq "jobs that cannot be read: the run stands for them" "state=failure" "$(wait_ci "$fx/runs-unreadable-jobs.json" 5)"
+eq "... with its name and no job id" "Extra failure null" "$(jq -r '.checks[] | "\(.name) \(.state) \(.job_id)"' "$work/ci.json")"
+eq "missing permission: no wait until the deadline" "state=unavailable" "$(GH_STUB_WORKFLOW_RUNS_ERROR='gh: Resource not accessible by integration (HTTP 403)' wait_ci x 30)"
+eq "... after a single call" 1 "$(grep -c 'actions/runs?' "$GH_STUB_LOG")"
+has "... and it names the permission" "actions: read" "$(cat "$work/ci.err")"
+eq "transient errors are retried, then give up" "state=unavailable" "$(GH_STUB_WORKFLOW_RUNS_ERROR='gh: HTTP 502' wait_ci x 30)"
+eq "... after five calls" 5 "$(grep -c 'actions/runs?' "$GH_STUB_LOG")"
+unset PATUFET_CI_POLL_SECONDS GH_STUB_JOBS_DIR
 
 echo "# ci-section.sh"
 result() {  # result <state> <checks json>
   jq -n --arg state "$1" --argjson checks "$2" '{state: $state, sha: "abc123", checks: $checks, seen: []}' > "$work/r.json"
 }
 failed='[{"name":"Backend Tests","state":"failure","conclusion":"failure","url":"https://x/job/201","job_id":"201"},{"name":"External CI","state":"failure","conclusion":"timed_out","url":"https://ci/9","job_id":null},{"name":"Frontend Build","state":"success","conclusion":"success","url":"https://x/job/202","job_id":"202"}]'
-eq "no ci-checks: only the diff" "You cannot run tests or builds; base your assessment of tests on reading the diff only." "$("$s/ci-section.sh" octo/app "$work/none.json")"
+eq "no wait (a fork PR): only the diff" "You cannot run tests or builds; base your assessment of tests on reading the diff only." "$("$s/ci-section.sh" octo/app "$work/none.json")"
+result none '[]'
+has "no CI on the commit is said" "no CI workflow ran on commit" "$("$s/ci-section.sh" octo/app "$work/r.json")"
 result success '[{"name":"Backend Tests","state":"success"}]'
 out=$("$s/ci-section.sh" octo/app "$work/r.json")
-has "success names the checks" 'these checks passed: `Backend Tests`' "$out"
-result timeout '[{"name":"Backend Tests","state":"pending"},{"name":"Testz","state":"missing"},{"name":"Lint","state":"success"}]'
+has "success names the jobs" 'these jobs passed: `Backend Tests`' "$out"
+result success '[{"name":"Backend Tests","state":"success","conclusion":"success"},{"name":"Bot-skipped","state":"success","conclusion":"skipped"}]'
+out=$("$s/ci-section.sh" octo/app "$work/r.json")
+has "a skipped job is not said to have passed" 'these jobs passed: `Backend Tests`.' "$out"
+has "... it is listed as skipped" 'skipped, so they tested nothing: `Bot-skipped`' "$out"
+result success '[{"name":"Bot-skipped","state":"success","conclusion":"skipped"}]'
+has "only skipped jobs: nothing ran" "no CI job actually ran" "$("$s/ci-section.sh" octo/app "$work/r.json")"
+result timeout '[{"name":"Backend Tests","state":"pending"},{"name":"Lint","state":"success"}]'
 out=$("$s/ci-section.sh" octo/app "$work/r.json")
 has "timeout says CI could not be confirmed" "CI could not be confirmed" "$out"
 has "timeout: a pending check is still running" '`Backend Tests`: still running' "$out"
-has "timeout: a missing check is not said to be running" '`Testz`: no check with this name exists' "$out"
 has "timeout: a finished check keeps its state" '`Lint`: success' "$out"
 result unavailable '[{"name":"Backend Tests","state":"unknown"}]'
-has "unavailable hints at the permission" "checks: read" "$("$s/ci-section.sh" octo/app "$work/r.json")"
+has "unavailable hints at the permission" "actions: read" "$("$s/ci-section.sh" octo/app "$work/r.json")"
 result failure "$failed"
 export GH_STUB_JOB_LOG="$fx/job-log.txt"
 : > "$GH_STUB_LOG"
@@ -240,87 +245,34 @@ has "e2e.yml uses the comment script" 'scripts/e2e-pass-comment.sh" "$PR_NUMBER"
 lacks "e2e.yml has no other ready-for-merge path" "Ready for human review" "$wf_e2e"
 has "a forced fail mentions the reviewer" 'to let fix-review try.$mention"' "$(cat "$root/.github/workflows/review.yml")"
 
-echo "# detect-ci-checks.sh"
+echo "# detect-pr-ci.sh"
 ci="$work/ci-repo"
 mkdir -p "$ci/.github/workflows"
-cat > "$ci/.github/workflows/ci.yml" <<'YAML'
-name: CI
-on:
-  push:
-    branches: [main]
-  pull_request:
+printf 'name: CI\non:\n  push:\n    branches: [main]\n  pull_request:\njobs:\n  t:\n    runs-on: x\n' > "$ci/.github/workflows/ci.yml"
+printf 'on: [push, pull_request] # inline\njobs:\n  l:\n    runs-on: x\n' > "$ci/.github/workflows/lint.yaml"
+printf 'on:\n  push:\n    branches: [main]\njobs:\n  d:\n    runs-on: x\n' > "$ci/.github/workflows/deploy.yml"
+printf 'on:\n  pull_request_target:\njobs:\n  l:\n    runs-on: x\n' > "$ci/.github/workflows/labeler.yml"
+printf 'on:\n  pull_request_review:\njobs:\n  r:\n    runs-on: x\n' > "$ci/.github/workflows/on-review.yml"
+printf 'on:\n  pull_request:\njobs:\n  review:\n    runs-on: x\n' > "$ci/.github/workflows/patufet.yml"
+printf 'on:\n  pull_request:\njobs:\n  r:\n    steps:\n      - uses: anthropics/claude-code-action@v1\n' > "$ci/.github/workflows/claude.yml"
+printf 'on:\n  workflow_dispatch:\njobs:\n  pull_request:\n    runs-on: x\n' > "$ci/.github/workflows/manual.yml"
+out=$(cd "$ci" && "$s/detect-pr-ci.sh")
+eq "only the workflows that run on pull requests" $'.github/workflows/ci.yml\n.github/workflows/lint.yaml' "$out"
+empty="$work/no-ci-repo"; mkdir -p "$empty/.github/workflows"
+cp "$ci/.github/workflows/deploy.yml" "$empty/.github/workflows/"
+eq "none: empty output, still a success" "" "$(cd "$empty" && "$s/detect-pr-ci.sh")"
 
-jobs:
-  backend:
-    name: Backend Tests   # a comment
-    runs-on: ubuntu-latest
-    steps:
-      - name: Not a job name
-        uses: actions/checkout@v6
-  frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - run: yarn generate
-  matrix:
-    name: test
-    strategy:
-      matrix:
-        os: [a, b]
-    runs-on: ${{ matrix.os }}
-  shared:
-    uses: ./.github/workflows/shared.yml
-YAML
-printf 'on: [push, pull_request]\njobs:\n    "lint":\n        name: "Lint #1" # a comment\n        runs-on: x\n' > "$ci/.github/workflows/lint.yaml"
-printf 'on: [pull_request]\njobs:\n  style:\n    name: Lint, style\n  sized:\n    name: "test (ubuntu, 21)"\n  plain:\n    name: Unquoted #comment\n' > "$ci/.github/workflows/style.yml"
-printf 'on:\n  push:\n    branches: [main]\njobs:\n  deploy:\n    name: Deploy\n' > "$ci/.github/workflows/deploy.yml"
-printf 'on:\n  pull_request_target:\njobs:\n  label:\n    name: Label\n' > "$ci/.github/workflows/labeler.yml"
-printf 'on:\n  pull_request:\njobs:\n  review:\n    name: Own\n' > "$ci/.github/workflows/patufet.yml"
-printf 'on:\n  pull_request:\njobs:\n  review:\n    name: Theirs\n    steps:\n      - uses: anthropics/claude-code-action@v1\n' > "$ci/.github/workflows/claude.yml"
-cat > "$ci/.github/workflows/odd.yml" <<'YAML'
-on: pull_request
-jobs:
-  doubled:
-    name: 'Bob''s tests'
-  escaped:
-    name: "say \"hi\""
-  block:
-    name: >-
-      Integration tests
-  alias:
-    name: *shared
-  unbalanced:
-    name: Build (debug
-  nested:
-    name: test (Node.js (20), ubuntu)
-  closing:
-    name: a) b
-  continued:
-    name: two
-      lines
-  empty:
-    name:
-YAML
-out=$(cd "$ci" && "$s/detect-ci-checks.sh")
-for job in doubled escaped block alias unbalanced closing continued empty; do
-  has "not read with certainty, so listed by hand: $job" $'dynamic\t.github/workflows/odd.yml: '"$job" "$out"
-done
-has "nested parentheses fit the list" $'check\ttest (Node.js (20), ubuntu)' "$out"
-for wrong in Bob 'say' '>-' '*shared' 'Build (debug' 'a) b' 'two'; do lacks "not written as a check: $wrong" $'check\t'"$wrong" "$out"; done
-has "job name" $'check\tBackend Tests' "$out"
-has "job id when it has no name" $'check\tfrontend' "$out"
-has "other indentation, # in a quoted name, inline trigger" $'check\tLint #1' "$out"
-has "a comma outside parentheses cannot be listed" $'dynamic\t.github/workflows/style.yml: style' "$out"
-has "a comma inside parentheses can" $'check\ttest (ubuntu, 21)' "$out"
-eq "an unquoted name ends at its comment" $'check\tUnquoted' "$(grep -F Unquoted <<< "$out")"
-has "matrix is dynamic" $'dynamic\t.github/workflows/ci.yml: matrix' "$out"
-has "reusable workflow is dynamic" $'dynamic\t.github/workflows/ci.yml: shared' "$out"
-for no in "Not a job name" Deploy Label Own Theirs; do lacks "not a PR check: $no" "$no" "$out"; done
+echo "# the review waits for the CI it finds (decision 12)"
+has "review waits for the commit's CI, minus its own workflow" '"$TPL_DIR/scripts/wait-for-ci.sh" "$GITHUB_REPOSITORY" "$HEAD_SHA" "$own"' "$(cat "$root/.github/workflows/review.yml")"
+has "the own workflow comes from the caller's ref" 'CALLER_REF: ${{ github.workflow_ref }}' "$(cat "$root/.github/workflows/review.yml")"
+has "a caller that still passes ci-checks is warned" 'ci-checks is deprecated and ignored' "$(cat "$root/.github/workflows/review.yml")"
+lacks "the template no longer asks for ci-checks" 'ci-checks' "$(cat "$root/templates/.github/workflows/patufet.yml")"
 
 echo "# permissions of the review job"
 wf_review="$root/.github/workflows/review.yml"
 eq "review.yml declares no permissions (a caller without actions: read would stop starting)" "" "$(grep -E '^ *permissions:' "$wf_review")"
 caller_review=$(awk '/^  review:/{f=1;next} /^  [a-z0-9-]+:$/{f=0} f' "$root/templates/.github/workflows/patufet.yml")
-for perm in "contents: read" "pull-requests: write" "issues: read" "id-token: write" "actions: read" "checks: read"; do
+for perm in "contents: read" "pull-requests: write" "issues: read" "id-token: write" "actions: read"; do
   has "caller's review job grants $perm" "$perm" "$caller_review"
 done
 
@@ -353,7 +305,7 @@ mkdir -p "$repo/.github/workflows"
   "$s/bootstrap.sh" --reviewer ana --language ca --with-e2e > "$work/b1.log" 2>&1 || echo "FAIL bootstrap exited non-zero: $(cat "$work/b1.log")"
   caller=.github/workflows/patufet.yml
   [ "$(grep -c 'human-reviewer: "ana"' "$caller")" = 4 ] && echo "ok   reviewer filled in (review, fix-review, e2e and fix-e2e)" || echo "FAIL reviewer filled in"
-  grep -q 'ci-checks: ""$' "$caller" && echo "ok   no CI: ci-checks stays empty" || echo "FAIL no CI: ci-checks stays empty"
+  grep -q 'ci-checks' "$caller" && echo "FAIL the caller has no ci-checks" || echo "ok   the caller has no ci-checks"
   grep -q 'no workflow runs CI on pull requests' "$work/b1.log" && echo "ok   no CI: warned" || echo "FAIL no CI: warned"
   secrets_passed=$(grep -E '^ +secrets: *inherit|\$\{\{ *secrets\.' "$caller" .github/workflows/patufet-mention.yml | grep -oE 'inherit|secrets\.[A-Za-z0-9_]+' | sort -u | tr '\n' ' ')
   [ "$secrets_passed" = "secrets.ANTHROPIC_API_KEY secrets.CLAUDE_CODE_OAUTH_TOKEN " ] && echo "ok   only the Claude secrets are passed" || echo "FAIL only the Claude secrets are passed: $secrets_passed"
@@ -363,19 +315,18 @@ mkdir -p "$repo/.github/workflows"
   grep -q 'label create pass' "$GH_STUB_LOG" && echo "FAIL existing label recreated" || echo "ok   existing label left untouched"
   [ "$(grep -c 'label create' "$GH_STUB_LOG")" = 7 ] && echo "ok   7 missing labels created" || echo "FAIL 7 missing labels created"
   # the owner edits the caller, then re-runs the bootstrap with other options
-  sed -i 's|ci-checks: ""|ci-checks: "mine"|' "$caller"
+  sed -i 's|human-reviewer: "ana"|human-reviewer: "mine"|' "$caller"
   before=$(cat .github/workflows/*.yml .github/patufet/* | md5sum)
   "$s/bootstrap.sh" --reviewer bob --language en --ref v9 > "$work/b2.log" 2>&1 || echo "FAIL bootstrap re-run exited non-zero: $(cat "$work/b2.log")"
   [ "$(cat .github/workflows/*.yml .github/patufet/* | md5sum)" = "$before" ] \
-    && echo "ok   re-run modifies no existing file (e2e job, ci-checks, ref kept)" \
+    && echo "ok   re-run modifies no existing file (e2e job, owner's edit, ref kept)" \
     || echo "FAIL re-run modifies no existing file"
   rm -rf .github .claude
   mkdir -p .github/workflows
   cp "$ci/.github/workflows/ci.yml" "$ci/.github/workflows/lint.yaml" .github/workflows/
   "$s/bootstrap.sh" --reviewer ana > "$work/b3.log" 2>&1 || echo "FAIL bootstrap with CI exited non-zero: $(cat "$work/b3.log")"
-  grep -qxF '      ci-checks: "Backend Tests, frontend, Lint #1"' "$caller" \
-    && echo "ok   detected CI jobs written to ci-checks" || echo "FAIL detected CI jobs written to ci-checks: $(grep ci-checks: "$caller")"
-  grep -q 'ci.yml: matrix' "$work/b3.log" && echo "ok   jobs with a run-time name warned about" || echo "FAIL jobs with a run-time name warned about"
+  grep -q 'review will wait for: .github/workflows/ci.yml .github/workflows/lint.yaml' "$work/b3.log" \
+    && echo "ok   CI present: the workflows the review waits for are named" || echo "FAIL CI present: the workflows the review waits for are named"
   grep -q 'no workflow runs CI' "$work/b3.log" && echo "FAIL CI present: no warning" || echo "ok   CI present: no warning"
   rm -rf .github .claude
   "$s/bootstrap.sh" --reviewer ana --language 'Catalan: Valencian "x"' > /dev/null 2>&1 || echo "FAIL bootstrap with free-text language"
