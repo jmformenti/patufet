@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Breaking:** the `ci-checks` input of `review.yml` is removed. It has been ignored since v1.5.0,
+  and a caller that still passes it now fails with `Invalid input`: remove it (see
+  `docs/migration.md`).
+
 ## v1.5.0 — 2026-11-09
 
 - The review finds the CI of the PR's commit on its own: every workflow that runs on it for a

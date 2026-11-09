@@ -80,8 +80,9 @@ event. See [The CI-aware review](customization.md#the-ci-aware-review).
 Every workflow that runs on pull requests counts, a linter of PR titles too. Fix it, or move it to
 another event (`pull_request_target` is not waited for).
 
-**`ci-checks is deprecated and ignored` in the log.**
-Since v1.5.0 the review finds the CI on its own. Remove `ci-checks` from the caller.
+**`Invalid input, ci-checks is not defined in the referenced workflow`.**
+The input was removed in v1.6.0: the review finds the CI on its own. Remove `ci-checks` from the
+caller (see [migration.md](migration.md#to-v160)).
 
 **The report says that the CI state or logs could not be read.**
 The caller's `review` job lacks `actions: read`. Add it to its `permissions:`.

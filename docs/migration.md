@@ -34,6 +34,13 @@ This is the path the original project (`habitus-trainer`) followed.
 - Major bump: the changelog lists the renamed inputs / new files; update the caller and the
   extension files, then change `@v1` → `@v2`.
 
+### To v1.6.0
+
+**Breaking:** the `ci-checks` input no longer exists. A caller that still passes it fails at once
+with `Invalid input, ci-checks is not defined in the referenced workflow`, and no stage runs. In
+`.github/workflows/patufet.yml`, `review` job: remove `ci-checks` and the comment above it, as in
+the step 1 of v1.5.0 below. A caller that already did that for v1.5.0 has nothing to do.
+
 ### To v1.5.0
 
 Compatible: nothing breaks, but `ci-checks` is now ignored, with a warning in the review's log. The
