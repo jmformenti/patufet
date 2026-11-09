@@ -50,7 +50,7 @@ skipped=$(jq -r '[.checks[] | select(.conclusion == "skipped") | .name | "`\(.)`
 
 case "$state" in
   none)
-    echo "You cannot run tests or builds, and no CI workflow ran on commit \`$sha\` (the repository runs none on pull requests). Base your assessment of tests on reading the diff only."
+    echo "You cannot run tests or builds, and no CI workflow ran on commit \`$sha\` (none ran for this pull request, or none is configured). Base your assessment of tests on reading the diff only."
     ;;
   success)
     if [ -n "$listed" ]; then

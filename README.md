@@ -132,7 +132,7 @@ The full state machine, markers and concurrency rules: [docs/architecture.md](do
 ## Configuration
 
 Every knob is an input of the reusable workflows (language, model, `max-turns`, allowed tools,
-label names, CI checks to wait for, cycle limit, hook paths...). Project-specific knowledge goes in
+label names, CI wait timeout, cycle limit, hook paths...). Project-specific knowledge goes in
 Markdown files appended to the base prompts. See [docs/customization.md](docs/customization.md).
 
 ## Cost and safety — read before enabling

@@ -72,7 +72,8 @@ its own and waits for it before reviewing (decision 12). **There is nothing to c
   does not wait for it;
 - a job that is added or renamed is waited for without editing anything;
 - workflows on other events (`push`, `pull_request_target`, `workflow_run`, comments) are not CI
-  of the PR, and neither are the mention workflow and other Claude workflows;
+  of the PR, and neither is the mention workflow, which runs on comments. Another Claude workflow
+  that runs on `pull_request` is waited for: remove it (see [ADOPTING.md](../ADOPTING.md));
 - with no such workflow at all, the review starts right away and says that no CI ran.
 
 | CI | What the reviewer gets | Verdict |
