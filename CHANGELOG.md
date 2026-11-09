@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.5.0 — 2026-11-09
+
 - The review finds the CI of the PR's commit on its own: every workflow that runs on it for a
   `pull_request` event, except the caller's own (decision 12). A workflow left out by `paths:`
   filters is not waited for, and a renamed job needs no change.
