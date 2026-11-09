@@ -47,7 +47,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    trigger(["opened / push"]) --> wait["wait for CI<br/>(ci-checks)"]
+    trigger(["opened / push"]) --> wait["wait for the CI<br/>of the commit"]
     subgraph run["one pull_request run (jobs chained with needs:)"]
         wait --> review
         review -->|pass| e2e
@@ -85,9 +85,9 @@ Rules that make it work (decision 11):
 - **A stage never acts on a superseded commit.** A newer push cancels a review still running.
   A review, e2e or fix-review that finds the PR moved on from the commit it started from sets
   no label and starts nothing: the review of the new commit decides.
-- With `ci-checks`, the review waits for those checks on the PR's head commit
-  (`scripts/wait-for-ci.sh`) and the reviewer gets their result and the end of the failed logs
-  (`scripts/ci-section.sh`). A red CI is a `fail`, and there is one review path for it: the
+- The review waits for the CI of the PR's head commit: every workflow that runs on it for a
+  `pull_request` event, except the caller's own (`scripts/wait-for-ci.sh`, decision 12). The
+  reviewer gets the result of their jobs and the end of the failed logs (`scripts/ci-section.sh`). A red CI is a `fail`, and there is one review path for it: the
   inline comments and the report go to `fix-review` like any other. If the structured verdict
   is `pass` on a red CI, the workflow forces `fail` and asks a person, since that report asks
   for no change. A failure the reviewer finds unrelated to the diff (`needs_human` in its

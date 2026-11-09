@@ -9,11 +9,15 @@ case "$1 ${2:-}" in
     case "$2" in
       */issues/*/comments) cat "${GH_STUB_ISSUE_COMMENTS:?}" ;;
       */pulls/*/comments)  cat "${GH_STUB_PR_COMMENTS:?}" ;;
-      */check-runs*)
-        # GH_STUB_CHECK_RUNS: colon-separated fixtures, one per poll; the last one repeats
-        if [ -n "${GH_STUB_CHECK_RUNS_ERROR:-}" ]; then echo "$GH_STUB_CHECK_RUNS_ERROR" >&2; exit 1; fi
-        IFS=: read -ra polls <<< "${GH_STUB_CHECK_RUNS:?}"
-        n=$(grep -c 'check-runs' "${GH_STUB_LOG:?}")
+      */actions/runs/*/jobs*)
+        # GH_STUB_JOBS_DIR/<run id>.json; a missing file is an error, like an unreadable run
+        id=${2#*/actions/runs/}; id=${id%%/*}
+        cat "${GH_STUB_JOBS_DIR:?}/$id.json" ;;
+      */actions/runs\?*)
+        # GH_STUB_WORKFLOW_RUNS: colon-separated fixtures, one per poll; the last one repeats
+        if [ -n "${GH_STUB_WORKFLOW_RUNS_ERROR:-}" ]; then echo "$GH_STUB_WORKFLOW_RUNS_ERROR" >&2; exit 1; fi
+        IFS=: read -ra polls <<< "${GH_STUB_WORKFLOW_RUNS:?}"
+        n=$(grep -c 'actions/runs?' "${GH_STUB_LOG:?}")
         [ "$n" -le "${#polls[@]}" ] || n=${#polls[@]}
         cat "${polls[$((n - 1))]}" ;;
       */actions/jobs/*/logs)

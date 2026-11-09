@@ -69,15 +69,22 @@ follow the output contract (often a `max-turns` exhaustion; the job summary show
 Reports of earlier cycles are deliberately ignored. Check the log; re-run by pushing an empty
 commit or re-labelling.
 
-**The review waits until `ci-wait-timeout-minutes` on every PR, and CI is already green.**
-A name in `ci-checks` matches no check: it is misspelled, it has the workflow prefix (`CI / Tests`
-instead of `Tests`), or its workflow did not run because of `paths:` / `branches:` filters. The
-warning in the `Wait for the CI checks` step lists the checks it saw. See
-[The CI-aware review](customization.md#the-ci-aware-review).
+**The review waits until `ci-wait-timeout-minutes` on every PR.**
+Some workflow that runs on pull requests takes longer than that, or never finishes: a preview
+deployment, a job waiting for an approval or a runner. The review waits for every workflow of the
+commit except its own; the job log of the `Wait for the CI of the commit` step and the report say
+which one was still running. Raise `ci-wait-timeout-minutes`, or move that workflow to another
+event. See [The CI-aware review](customization.md#the-ci-aware-review).
+
+**The verdict is `fail` because of a workflow that is not CI.**
+Every workflow that runs on pull requests counts, a linter of PR titles too. Fix it, or move it to
+another event (`pull_request_target` is not waited for).
+
+**`ci-checks is deprecated and ignored` in the log.**
+Since v1.5.0 the review finds the CI on its own. Remove `ci-checks` from the caller.
 
 **The report says that the CI state or logs could not be read.**
-The caller's `review` job lacks `checks: read` (state, on private repositories) or `actions: read`
-(logs). Add them to its `permissions:`.
+The caller's `review` job lacks `actions: read`. Add it to its `permissions:`.
 
 **`fail` with `needs-human-review` after a flaky CI failure.**
 The reviewer judged the failure unrelated to the diff (`needs_human` in its result), so no

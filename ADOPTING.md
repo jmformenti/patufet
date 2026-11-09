@@ -60,7 +60,8 @@ Then, for each case that applies, do the following and mention it in your final 
   to an allowed pattern, or the owner must add the App to the bypass list.
 - **CI skips pull requests from bots** (`if: github.actor != 'dependabot[bot]'` and the
   like). patufet's PRs are opened by `claude[bot]`; if the tests would not run on them,
-  say so in the report and do not list those jobs in `ci-checks`.
+  say so in the report. The review tells the reviewer which jobs were skipped, but a skipped
+  job does not make the verdict `fail`.
 - **No workflow runs CI on pull requests.** Then nothing tests the PRs of people. Offer the
   owner to add one that runs the project's tests and build; if they accept, do it first, in its
   own PR. If they decline, say in the report that only what `AGENTS.md`, `CLAUDE.md` or the README
@@ -84,12 +85,10 @@ checks for the secret. Read its output: the final "Next steps" block and any `WA
 
 `.github/workflows/patufet.yml` (the caller):
 
-- `ci-checks` (`review` job): the bootstrap fills it in with the jobs of the workflows that run
-  on pull requests. The review waits for them, and a red one means `fail`, so keep only the
-  checks that must be green to merge and that run on every PR (not those behind `paths:` or
-  `branches:` filters, which would make the review wait until the timeout). Add by hand the jobs
-  the bootstrap warned about (matrix, reusable workflow), with the name they show in a PR's
-  checks. Details: [docs/customization.md](docs/customization.md#the-ci-aware-review).
+- CI: nothing to fill in. The review waits for every workflow that runs on the PR's commit, and a
+  red one means `fail`. The bootstrap prints those workflows; if one of them is not CI (a preview
+  deployment, a PR title linter), tell the owner, since it delays or fails every review. Details:
+  [docs/customization.md](docs/customization.md#the-ci-aware-review).
 - Build and test commands: the agents reproduce the CI workflows and fall back to `AGENTS.md`,
   `CLAUDE.md` or the README, so check that those describe them correctly.
 - `java-version`, `node-version` (`implement` and `fix-review`): set them if CI pins a version
@@ -117,7 +116,6 @@ Describe in `.github/patufet/e2e.md` what must always be exercised. Full contrac
 ## 5. Verify
 
 ```bash
-grep -n 'ci-checks:' .github/workflows/patufet.yml          # empty only without CI on PRs
 gh label list --json name --jq '.[].name' | sort            # must include the 8 flow labels:
 # blocked fail in-progress needs-human-review pass ready-to-implement to-refine warning
 gh secret list --json name --jq '.[].name'                  # CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY
@@ -131,13 +129,13 @@ A missing secret is a **human** step (section 7), not a failure of yours.
 
 Always a branch and a pull request, never a direct commit to the default branch, unless
 the owner explicitly asked for one. This change adds workflows with write access that are
-billed to the owner's key, a `ci-checks` you adjusted and checklists you wrote: it is
+billed to the owner's key and checklists you wrote: it is
 the one change a human must read, and there is no other review (workflows cannot be run
 locally, and see below). The workflows only become active once merged.
 
 The PR body is the hand-over report. Put in it:
 
-- what you inferred and from where: `ci-checks`, the contents of the
+- what you inferred and from where: the CI workflows the review will wait for, the contents of the
   `.github/patufet/*.md` files (or why you deleted them), the e2e hooks if any;
 - the conflicts found in section 2 and what you did about each;
 - the bootstrap's label lines (`create <label>` / `keep <label>`): an uninstall deletes

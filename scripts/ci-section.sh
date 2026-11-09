@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Print the {{ci_section}} of the review prompt: what CI says about this commit
-# and, when it failed, an excerpt of the failed logs. Without a result file (no
-# `ci-checks`, or a fork PR) the reviewer only has the diff.
+# and, when it failed, an excerpt of the failed logs. Without a result file (a
+# fork PR, whose review does not wait) the reviewer only has the diff.
 #
 # Usage: ci-section.sh <owner/repo> <result file of wait-for-ci.sh>
 #
@@ -43,24 +43,35 @@ download_log() {
 
 state=$(jq -r .state "$result")
 sha=$(jq -r .sha "$result")
-listed=$(jq -r '[.checks[].name | "`\(.)`"] | join(", ")' "$result")
+# A skipped job counts as passed, but it did not run: say which ones, so that the
+# reviewer does not take them as tested (a CI that skips the PRs of bots, a job-level if:)
+listed=$(jq -r '[.checks[] | select(.conclusion != "skipped") | .name | "`\(.)`"] | join(", ")' "$result")
+skipped=$(jq -r '[.checks[] | select(.conclusion == "skipped") | .name | "`\(.)`"] | join(", ")' "$result")
 
 case "$state" in
+  none)
+    echo "You cannot run tests or builds, and no CI workflow ran on commit \`$sha\` (none ran for this pull request, or none is configured). Base your assessment of tests on reading the diff only."
+    ;;
   success)
-    echo "You cannot run tests or builds, but CI did on commit \`$sha\` and these checks passed: $listed. Do not repeat them; assess test coverage by reading the diff."
+    if [ -n "$listed" ]; then
+      echo "You cannot run tests or builds, but CI did on commit \`$sha\` and these jobs passed: $listed. Do not repeat them; assess test coverage by reading the diff."
+    else
+      echo "You cannot run tests or builds, and no CI job actually ran on commit \`$sha\`. Base your assessment of tests on reading the diff only."
+    fi
+    if [ -n "$skipped" ]; then
+      echo
+      echo "These CI jobs were skipped, so they tested nothing: $skipped. Say so in your report if they are the ones that would test this diff."
+    fi
     ;;
   timeout)
-    echo "You cannot run tests or builds. **CI could not be confirmed** on commit \`$sha\` when the wait ended. State of the checks:"
+    echo "You cannot run tests or builds. **CI could not be confirmed** on commit \`$sha\` when the wait ended. State of its jobs:"
     echo
-    jq -r '.checks[] | "- `\(.name)`: \(
-      if .state == "pending" then "still running"
-      elif .state == "missing" then "no check with this name exists on this commit (the name in `ci-checks` may be wrong, or its workflow did not run)"
-      else .state end)"' "$result"
+    jq -r '.checks[] | "- `\(.name)`: \(if .state == "pending" then "still running" else .state end)"' "$result"
     echo
-    echo "Say in your report which checks could not be confirmed and why, so your verdict does not vouch for them. Base your assessment of tests on reading the diff only."
+    echo "Say in your report which jobs could not be confirmed, so your verdict does not vouch for them. Base your assessment of tests on reading the diff only."
     ;;
   unavailable)
-    echo "You cannot run tests or builds, and **the state of CI could not be read** on commit \`$sha\` (expected checks: $listed). Say so in your report, adding this hint for the repository owner: the \`review\` job of the caller workflow needs \`checks: read\` in its \`permissions:\`. Base your assessment of tests on reading the diff only."
+    echo "You cannot run tests or builds, and **the state of CI could not be read** on commit \`$sha\`. Say so in your report, adding this hint for the repository owner: the \`review\` job of the caller workflow needs \`actions: read\` in its \`permissions:\`. Base your assessment of tests on reading the diff only."
     ;;
   failure)
     echo "You cannot run tests or builds, but CI did on commit \`$sha\`, and **CI failed**:"

@@ -80,7 +80,7 @@ They bound the steps that use `GITHUB_TOKEN`, not the agents (see [Tokens](#toke
 |---|---|---|---|---|---|---|
 | implement | write | write | write | write | – | – |
 | fix-review | write | write | read | write | – | – |
-| review | read | write | read | write | read (with `ci-checks`) | read (with `ci-checks`) |
+| review | read | write | read | write | read | – |
 | e2e | read | write | read | write | – | – |
 | mention | read | read | read | write | read | – |
 

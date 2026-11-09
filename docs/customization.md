@@ -24,7 +24,7 @@ Common to `implement`, `review`, `fix-review`, `e2e`:
 | `claude-args-extra` | `''` | Anything else for `claude_args`. |
 | `show-full-output` | `true` | Full transcript in the job log. Needed to diagnose tool denials; may echo secrets printed by tools. |
 | `extra-instructions-file` | `.github/patufet/<stage>.md` | See layer 2. |
-| `timeout-minutes` | 45 (implement, fix-review) / 30 (review, e2e) | Job timeout. On `review` with `ci-checks`, it bounds the Claude step only: the wait has its own limit. |
+| `timeout-minutes` | 45 (implement, fix-review) / 30 (review, e2e) | Job timeout. On `review` it bounds the Claude step only: the wait for CI has its own limit. |
 
 `implement`:
 
@@ -39,8 +39,8 @@ Common to `implement`, `review`, `fix-review`, `e2e`:
 
 | Input | Default | Notes |
 |---|---|---|
-| `ci-checks` | `''` | Check names to wait for before reviewing, comma-separated. See [The CI-aware review](#the-ci-aware-review). Empty = no wait. |
-| `ci-wait-timeout-minutes` | `30` | Maximum wait for `ci-checks`. When it ends, the review runs and reports that CI has not finished. |
+| `ci-wait-timeout-minutes` | `30` | Maximum wait for the CI of the commit. When it ends, the review runs and reports that CI has not finished. See [The CI-aware review](#the-ci-aware-review). |
+| `ci-checks` | `''` | Deprecated and ignored since v1.5.0, with a warning in the log: remove it. The review finds the CI on its own. |
 | `human-reviewer` | `''` | Login (no `@`) mentioned when a CI failure needs a person: it is unrelated to the diff, or the workflow had to force `fail` over a `pass`. |
 | `branch-prefix` | `agent/issue-` | Same as implement, to find the linked issue. |
 | `allowed-bots` | `claude` | The implementer opens PRs as the `claude` bot; without this the action refuses bot-triggered events. Also on `fix-review` and `e2e`. |
@@ -62,54 +62,44 @@ Outputs: `verdict` (the label set: `pass` / `warning` / `fail`, empty when none)
 
 ### The CI-aware review
 
-The repository's own CI is the single source of truth for build and test. With `ci-checks`,
-the review waits for those checks on the PR's head commit and reviews knowing their result:
+The repository's own CI is the single source of truth for build and test. The review finds it on
+its own and waits for it before reviewing (decision 12). **There is nothing to configure.**
+
+**What counts as CI:** every workflow that GitHub starts for the PR's head commit on a
+`pull_request` event, except the caller's own (`patufet.yml`). Their jobs are the checks. So:
+
+- a workflow that its `paths:` or `branches:` filters leave out of a PR does not run, and the review
+  does not wait for it;
+- a job that is added or renamed is waited for without editing anything;
+- workflows on other events (`push`, `pull_request_target`, `workflow_run`, comments) are not CI
+  of the PR, and neither is the mention workflow, which runs on comments. Another Claude workflow
+  that runs on `pull_request` is waited for: remove it (see [ADOPTING.md](../ADOPTING.md));
+- with no such workflow at all, the review starts right away and says that no CI ran.
 
 | CI | What the reviewer gets | Verdict |
 |---|---|---|
-| green | the names of the checks that passed | on the merits of the diff |
-| red | the failed checks and the end of their logs | always `fail`, with the cause explained inline where possible; `fix-review` applies it. If the workflow sees `pass` here, it forces `fail` |
-| red, unrelated to the diff (runner, network, flaky test) | same | still `fail`, but it asks for no code change, mentions `human-reviewer` and adds `needs-human-review`; `fix-review` then pushes nothing for it |
-| not confirmed at the timeout (still running, or no check with that name) | the state of each check | on the merits of the diff; the report says that it does not vouch for those checks |
+| green | the names of the jobs that passed | on the merits of the diff |
+| red | the failed jobs and the end of their logs | always `fail`, with the cause explained inline where possible; `fix-review` applies it. If the workflow sees `pass` here, it forces `fail` |
+| red, unrelated to the diff (runner, network, flaky test) | same | still `fail`, but it asks for no code change, mentions `human-reviewer` and adds `needs-human-review`; no `fix-review` starts |
+| not finished at the timeout (`ci-wait-timeout-minutes`) | the state of each job | on the merits of the diff; the report says that it does not vouch for those jobs |
+| none on the commit | that no CI ran | on the merits of the diff |
 | unreadable (no permission) | that it could not be read | same; the report says which permission is missing |
 
-**The names** are those of the check runs: a job's `name:`, or its id if it has none. They
-are what the PR's checks box shows without the workflow prefix and the event (`Backend Tests`
-for `CI / Backend Tests (pull_request)`), and this lists them:
+A skipped job or workflow counts as passed. When a workflow ran more than once on the same
+commit (an earlier event, a re-run), its latest run counts.
 
-```bash
-gh pr checks <pr> --json name --jq '.[].name'
-```
+**Every workflow that runs on pull requests is waited for**, also one that is not really CI: a
+preview deployment makes the review wait longer, and a failing linter of PR titles makes the
+verdict `fail`. If that is a problem, move such a workflow to another event or open an issue.
 
-They must match exactly. A comma inside parentheses belongs to the name, so a matrix job can be
-listed: `Lint, test (ubuntu, 21)` is two checks. For a name with any other comma, write one name
-per line (`ci-checks: |`); then only the lines separate names.
+**CI outside GitHub Actions** (Jenkins, CircleCI, Buildkite...) is not waited for: the review only
+sees GitHub Actions workflows. Its result does not reach the reviewer, and a red external CI does
+not make the verdict `fail`. The implementer and fix-review only reproduce the workflows in
+`.github/workflows/`, so make sure `AGENTS.md`, `CLAUDE.md` or the README describe how to build and
+test.
 
-**List only the checks that always run**, or that are skipped with a job-level `if:`
-(a skipped check counts as passed). A workflow left out by `paths:` or `branches:` filters
-creates no check at all, so the review would wait until the timeout on every PR that does not
-touch those paths. The same goes for a misspelled name; the job log then lists the checks it
-did see.
-
-**CI outside GitHub Actions** (Jenkins, CircleCI, Buildkite...) works with limits:
-
-- The bootstrap does not detect it, because it only reads `.github/workflows/`. Add its names to
-  `ci-checks` by hand, as the PR's checks box shows them.
-- The review reads check runs only. A CI that reports commit statuses instead (older
-  integrations, some Jenkins setups) creates no check run, so the review would wait until the
-  timeout on every PR: leave those names out. This lists what the review can see:
-
-  ```bash
-  gh api "repos/{owner}/{repo}/commits/<sha>/check-runs" --jq '.check_runs[].name'
-  ```
-
-- When such a check fails, the reviewer gets its name, its conclusion and its link, but no log:
-  only the logs of GitHub Actions jobs can be downloaded.
-- The implementer and fix-review only reproduce the workflows in `.github/workflows/`. Make sure
-  `AGENTS.md`, `CLAUDE.md` or the README describe how to build and test, or they cannot check
-  their changes the way the external CI will.
-
-**The caller's `review` job needs two more permissions**:
+**The caller's `review` job needs `actions: read`**, to list the runs of the commit and read the
+logs of the failed jobs:
 
 ```yaml
 permissions:
@@ -117,19 +107,19 @@ permissions:
   pull-requests: write
   issues: read
   id-token: write
-  actions: read # the logs of failed CI jobs
-  checks: read # the state of CI (needed on private repositories)
+  actions: read # the CI runs of the commit and the logs of failed jobs
 ```
 
-Without `actions: read` the reviewer gets the failed names but no logs, and its report asks you
-to add it. Without `checks: read` on a private repository, the state of CI cannot be read.
+Without it the state of CI cannot be read: the review goes on and its report asks you to add it.
+`checks: read` is no longer needed.
 
 **Cost:** the review's runner idles while CI runs (billable minutes on private repositories),
 and a red CI still spends a Claude review, which in return gives `fix-review` an explanation
 instead of raw logs.
 
 Re-running a failed CI job does not start a new review, because no event reaches `patufet.yml`.
-After a flaky failure, re-run the CI job and then the `review` job of the same push.
+After a flaky failure, re-run the CI job and then the `review` job of the same push. GitHub
+re-runs the jobs that need it too.
 
 ### Renaming the labels
 

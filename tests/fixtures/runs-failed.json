@@ -1,0 +1,59 @@
+{
+ "total_count": 6,
+ "workflow_runs": [
+  {
+   "id": 100,
+   "name": "CI",
+   "path": ".github/workflows/ci.yml",
+   "event": "pull_request",
+   "status": "completed",
+   "conclusion": "failure",
+   "head_sha": "abc123"
+  },
+  {
+   "id": 90,
+   "name": "Lint",
+   "path": ".github/workflows/lint.yml",
+   "event": "pull_request",
+   "status": "completed",
+   "conclusion": "failure",
+   "head_sha": "abc123"
+  },
+  {
+   "id": 110,
+   "name": "Lint",
+   "path": ".github/workflows/lint.yml",
+   "event": "pull_request",
+   "status": "completed",
+   "conclusion": "success",
+   "head_sha": "abc123"
+  },
+  {
+   "id": 101,
+   "name": "patufet",
+   "path": ".github/workflows/patufet.yml",
+   "event": "pull_request",
+   "status": "in_progress",
+   "conclusion": null,
+   "head_sha": "abc123"
+  },
+  {
+   "id": 80,
+   "name": "CI",
+   "path": ".github/workflows/ci.yml",
+   "event": "push",
+   "status": "completed",
+   "conclusion": "failure",
+   "head_sha": "abc123"
+  },
+  {
+   "id": 85,
+   "name": "Labeler",
+   "path": ".github/workflows/labeler.yml",
+   "event": "pull_request_target",
+   "status": "completed",
+   "conclusion": "failure",
+   "head_sha": "abc123"
+  }
+ ]
+}

@@ -14,11 +14,11 @@ on:
         type: string
         default: .github/patufet/review.md
       ci-checks:
-        description: Names of the CI checks to wait for before reviewing, separated by commas (a job's check name, e.g. "Backend Tests, Frontend Build"). Their result and failed logs reach the reviewer. Empty = no wait
+        description: Deprecated and ignored since v1.5.0, remove it. The review waits for every workflow that runs on the PR's commit (decision 12)
         type: string
         default: ''
       ci-wait-timeout-minutes:
-        description: Maximum wait for ci-checks. When it ends the review runs anyway and reports that CI has not finished
+        description: Maximum wait for the CI of the PR's commit. When it ends the review runs anyway and reports that CI has not finished
         type: number
         default: 30
       human-reviewer:
@@ -74,7 +74,7 @@ on:
         type: string
         default: needs-human-review
       timeout-minutes:
-        description: Timeout of the review, not counting the wait for ci-checks
+        description: Timeout of the review, not counting the wait for CI
         type: number
         default: 30
     secrets:
@@ -93,10 +93,9 @@ on:
 jobs:
   review:
     runs-on: ubuntu-latest
-    # Expressions have no arithmetic to add the wait to the review: with ci-checks
-    # the wait and the Claude step are bounded one by one, and this is only GitHub's
-    # own limit for a job
-    timeout-minutes: ${{ inputs.ci-checks != '' && 360 || inputs.timeout-minutes }}
+    # Expressions have no arithmetic to add the wait to the review: the wait and the
+    # Claude step are bounded one by one, and this is only GitHub's own limit for a job
+    timeout-minutes: 360
     # A review of a superseded diff must never label after a newer one. This also
     # cancels a review still waiting for the CI of the previous push.
     concurrency:
@@ -105,8 +104,8 @@ jobs:
     # No `permissions:` on purpose, the job takes those of the caller's job: declaring
     # `actions: read` and `checks: read` here would ask for more than a caller that
     # has not opted in grants, and leaving them out would deny them to the one that has.
-    # Needs: contents read, pull-requests write, issues read, id-token write, and with
-    # ci-checks actions read and checks read (docs/security.md, decision 10).
+    # Needs: contents read, pull-requests write, issues read, id-token write and
+    # actions read, for the runs and logs of CI (docs/security.md, decisions 10, 12).
     outputs:
       verdict: ${{ steps.verdict.outputs.verdict }}
       next-stage: ${{ steps.verdict.outputs.next-stage }}
@@ -157,16 +156,24 @@ jobs:
         if: github.event.pull_request.head.repo.full_name == github.repository
         run: gh pr edit "$PR_NUMBER" --remove-label "$LABEL_PASS" --remove-label "$LABEL_WARNING" --remove-label "$LABEL_FAIL"
 
-      # A fork PR has no secrets, so its review fails at the Claude step: no point
-      # in idling first
-      - name: Wait for the CI checks
+      # The CI is every workflow that runs on this commit for the PR, except the
+      # caller's own (decision 12). A fork PR has no secrets, so its review fails at
+      # the Claude step: no point in idling first
+      - name: Wait for the CI of the commit
         id: ci
-        if: inputs.ci-checks != '' && github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event.pull_request.head.repo.full_name == github.repository
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CALLER_REF: ${{ github.workflow_ref }}
           CI_CHECKS: ${{ inputs.ci-checks }}
           CI_WAIT_MINUTES: ${{ inputs.ci-wait-timeout-minutes }}
-        run: '"$TPL_DIR/scripts/wait-for-ci.sh" "$GITHUB_REPOSITORY" "$HEAD_SHA" "$CI_CHECKS" "$CI_WAIT_MINUTES" "$RUNNER_TEMP/ci-result.json" >> "$GITHUB_OUTPUT"'
+        run: |
+          if [ -n "$CI_CHECKS" ]; then
+            echo "::warning::ci-checks is deprecated and ignored: the review waits for every workflow of the commit. Remove it from the caller."
+          fi
+          own=${CALLER_REF#"$GITHUB_REPOSITORY"/}
+          own=${own%%@*}
+          "$TPL_DIR/scripts/wait-for-ci.sh" "$GITHUB_REPOSITORY" "$HEAD_SHA" "$own" "$CI_WAIT_MINUTES" "$RUNNER_TEMP/ci-result.json" >> "$GITHUB_OUTPUT"
 
       - name: Render the prompt
         id: prompt
