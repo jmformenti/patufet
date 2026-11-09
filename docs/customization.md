@@ -40,7 +40,6 @@ Common to `implement`, `review`, `fix-review`, `e2e`:
 | Input | Default | Notes |
 |---|---|---|
 | `ci-wait-timeout-minutes` | `30` | Maximum wait for the CI of the commit. When it ends, the review runs and reports that CI has not finished. See [The CI-aware review](#the-ci-aware-review). |
-| `ci-checks` | `''` | Deprecated and ignored since v1.5.0, with a warning in the log: remove it. The review finds the CI on its own. |
 | `human-reviewer` | `''` | Login (no `@`) mentioned when a CI failure needs a person: it is unrelated to the diff, or the workflow had to force `fail` over a `pass`. |
 | `branch-prefix` | `agent/issue-` | Same as implement, to find the linked issue. |
 | `allowed-bots` | `claude` | The implementer opens PRs as the `claude` bot; without this the action refuses bot-triggered events. Also on `fix-review` and `e2e`. |

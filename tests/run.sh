@@ -265,7 +265,7 @@ eq "none: empty output, still a success" "" "$(cd "$empty" && "$s/detect-pr-ci.s
 echo "# the review waits for the CI it finds (decision 12)"
 has "review waits for the commit's CI, minus its own workflow" '"$TPL_DIR/scripts/wait-for-ci.sh" "$GITHUB_REPOSITORY" "$HEAD_SHA" "$own"' "$(cat "$root/.github/workflows/review.yml")"
 has "the own workflow comes from the caller's ref" 'CALLER_REF: ${{ github.workflow_ref }}' "$(cat "$root/.github/workflows/review.yml")"
-has "a caller that still passes ci-checks is warned" 'ci-checks is deprecated and ignored' "$(cat "$root/.github/workflows/review.yml")"
+lacks "ci-checks is no longer an input" 'ci-checks' "$(cat "$root/.github/workflows/review.yml")"
 lacks "the template no longer asks for ci-checks" 'ci-checks' "$(cat "$root/templates/.github/workflows/patufet.yml")"
 
 echo "# permissions of the review job"

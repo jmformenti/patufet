@@ -13,10 +13,6 @@ on:
         description: Path (in the consumer repo) of a Markdown file appended to the base prompt (project review checklist)
         type: string
         default: .github/patufet/review.md
-      ci-checks:
-        description: Deprecated and ignored since v1.5.0, remove it. The review waits for every workflow that runs on the PR's commit (decision 12)
-        type: string
-        default: ''
       ci-wait-timeout-minutes:
         description: Maximum wait for the CI of the PR's commit. When it ends the review runs anyway and reports that CI has not finished
         type: number
@@ -102,8 +98,7 @@ jobs:
       group: patufet-review-${{ github.repository }}-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     # No `permissions:` on purpose, the job takes those of the caller's job: declaring
-    # `actions: read` and `checks: read` here would ask for more than a caller that
-    # has not opted in grants, and leaving them out would deny them to the one that has.
+    # them here could only ask for more than the caller grants.
     # Needs: contents read, pull-requests write, issues read, id-token write and
     # actions read, for the runs and logs of CI (docs/security.md, decisions 10, 12).
     outputs:
@@ -165,12 +160,8 @@ jobs:
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           CALLER_REF: ${{ github.workflow_ref }}
-          CI_CHECKS: ${{ inputs.ci-checks }}
           CI_WAIT_MINUTES: ${{ inputs.ci-wait-timeout-minutes }}
         run: |
-          if [ -n "$CI_CHECKS" ]; then
-            echo "::warning::ci-checks is deprecated and ignored: the review waits for every workflow of the commit. Remove it from the caller."
-          fi
           own=${CALLER_REF#"$GITHUB_REPOSITORY"/}
           own=${own%%@*}
           "$TPL_DIR/scripts/wait-for-ci.sh" "$GITHUB_REPOSITORY" "$HEAD_SHA" "$own" "$CI_WAIT_MINUTES" "$RUNNER_TEMP/ci-result.json" >> "$GITHUB_OUTPUT"

@@ -220,6 +220,8 @@ logs of the failed ones. With no such run, after one more look, the review start
 `ci-checks` is ignored with a warning, and the bootstrap only warns when nothing runs CI on pull
 requests (`scripts/detect-pr-ci.sh`).
 
+*In v1.6.0 the input was removed, once no known caller passed it.*
+
 **Rejected.**
 
 - Keeping `ci-checks` as an override. No consumer needed it, and it is the source of the errors
