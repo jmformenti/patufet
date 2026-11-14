@@ -216,39 +216,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REVIEWER: ${{ inputs.human-reviewer }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          # No execution file = the action skipped itself before running Claude
-          # (e.g. its workflow-file validation on the PR that first adds the
-          # workflow) or the step timed out. Nothing to label; just fail visibly.
-          if [ -z "$CLAUDE_EXECUTION_FILE" ]; then
-            echo "::error::The Claude action did not finish (see its step log: workflow validation, missing token, timeout...). No verdict."
-            exit 1
-          fi
-          verdict=$("$TPL_DIR/scripts/read-verdict.sh" review "$GITHUB_REPOSITORY" "$PR_NUMBER" "cycle=$CYCLE")
-          needs_human=$(jq -rn --arg s "${STRUCTURED:-}" '$s | try (fromjson | .needs_human == true) catch false')
-          head=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
-          moved=false
-          [ "$head" = "$HEAD_SHA" ] || moved=true
-          route=$("$TPL_DIR/scripts/route-review.sh" "$verdict" "$CI_STATE" "$needs_human" "$moved")
-          echo "$route" >> "$GITHUB_OUTPUT"
-          label=$(sed -n 's/^verdict=//p' <<< "$route")
-          nhr=$(sed -n 's/^needs-human=//p' <<< "$route")
-          mention=""
-          [ -n "$REVIEWER" ] && mention=" @$REVIEWER"
-          case "$(sed -n 's/^reason=//p' <<< "$route")" in
-            moved)
-              echo "The PR has moved on from ${HEAD_SHA:0:7} to ${head:0:7}; the review of the new commit sets the state." ;;
-            no-verdict)
-              gh pr edit "$PR_NUMBER" --add-label "$LABEL_NHR"
-              gh pr comment "$PR_NUMBER" --body "⚠️ patufet: review cycle $CYCLE produced no verdict. Manual review needed. See $RUN_URL"
-              exit 1 ;;
-            forced-fail)
-              echo "::warning::The reviewer returned 'pass' on a failed CI; the verdict is forced to 'fail'"
-              "$TPL_DIR/scripts/set-verdict-label.sh" "$PR_NUMBER" fail "$LABEL_PASS" "$LABEL_WARNING" "$LABEL_FAIL" "$LABEL_NHR" true
-              gh pr comment "$PR_NUMBER" --body "⚠️ patufet: the reviewer returned \`pass\` although CI failed, so the workflow set \`$LABEL_FAIL\`. The report asks for no change, so no fix starts on its own: fix the cause, or remove and re-add \`$LABEL_FAIL\` to let fix-review try.$mention" ;;
-            *)
-              "$TPL_DIR/scripts/set-verdict-label.sh" "$PR_NUMBER" "$label" "$LABEL_PASS" "$LABEL_WARNING" "$LABEL_FAIL" "$LABEL_NHR" "$nhr" ;;
-          esac
+        run: '"$TPL_DIR/scripts/apply-review-verdict.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER" "$CYCLE"'
 
       - name: Summary
         if: always() && env.TPL_DIR != ''

@@ -5,6 +5,16 @@
 - **Breaking:** the `ci-checks` input of `review.yml` is removed. It has been ignored since v1.5.0,
   and a caller that still passes it now fails with `Invalid input`: remove it (see
   `docs/migration.md`).
+- A `fix-review` that ends without pushing anything (a point it left as a question, nothing it may
+  change, denied tools) now labels the PR `needs-human-review` and mentions `human-reviewer`.
+  Before, the PR stayed at `warning` / `fail` with no new review and nobody told.
+- `implement` creates its four issue labels when they are missing, like `review` does with the
+  verdict labels. Before, a renamed label that had not been created made the run fail.
+- e2e: the job's `GITHUB_TOKEN` no longer reaches `e2e-up.sh`, `e2e-down.sh` or the application,
+  which are code of the PR. A hook that calls `gh` must now get a token of its own.
+- Internal: the steps that set the state after a review and after e2e, and the gate of
+  `fix-review`, are scripts with offline tests (`apply-review-verdict.sh`, `apply-e2e-verdict.sh`,
+  `fix-gate.sh`). No change in behaviour.
 
 ## v1.5.0 — 2026-11-09
 

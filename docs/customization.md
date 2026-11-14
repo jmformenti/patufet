@@ -52,8 +52,8 @@ Outputs: `verdict` (the label set: `pass` / `warning` / `fail`, empty when none)
 | Input | Default | Notes |
 |---|---|---|
 | `max-review-cycles` | `10` | Reports before handing over to a human. |
-| `human-reviewer` | `''` | Login (no `@`) mentioned when the limit is reached. |
-| `label-needs-human-review` | `needs-human-review` | Set when the limit is reached. |
+| `human-reviewer` | `''` | Login (no `@`) mentioned when the limit is reached, or when the fix ends without a push. |
+| `label-needs-human-review` | `needs-human-review` | Set when the limit is reached, or when the fix ends without a push. Created if missing. |
 
 `e2e`: see [e2e.md](e2e.md) (`label-pass`, `label-warning`, `label-fail` as in review).
 

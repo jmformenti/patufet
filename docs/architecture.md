@@ -10,7 +10,7 @@
 | `.github/workflows/e2e.yml` | reusable workflow | start the app via hooks, test live with Playwright MCP |
 | `.github/workflows/mention.yml` | reusable workflow | ad-hoc `@claude` interactions |
 | `prompts/*.md` | data | base prompts, rendered by `scripts/render-prompt.sh` |
-| `scripts/*.sh`, `scripts/trusted-comments.jq` | helpers | context gathering, plan/report/verdict extraction with trust filter, cycle count, labelling, job summary |
+| `scripts/*.sh`, `scripts/trusted-comments.jq` | helpers | context gathering, plan/report/verdict extraction with trust filter, cycle count, the state after each stage (verdict label, next stage, hand-over to a person), job summary |
 | `templates/` | data | caller workflows, prompt extensions, e2e hooks, `/plan-issue` command |
 | `tests/` | tests | offline tests of the scripts and the bootstrap, run by `self-check.yml` |
 
@@ -55,7 +55,7 @@ flowchart LR
         e2e -->|fail| fixe2e[fix-e2e]
         e2e --> ok["✅ mention reviewer"]
         review --> nhr["needs-human-review<br/>(no verdict, forced fail,<br/>CI unrelated to the diff)"]
-        fix --> nhrc["needs-human-review<br/>(cycle limit)"]
+        fix --> nhrc["needs-human-review<br/>(cycle limit, nothing pushed)"]
     end
     fix -->|push| trigger
     fixe2e -->|push| trigger
@@ -94,7 +94,10 @@ Rules that make it work (decision 11):
   result) gets `fail` and `needs-human-review`, and no fix.
 - The review cycle counter is the number of trusted comments carrying
   `<!-- patufet:review`. `fix-review` refuses to run once it reaches `max-review-cycles`
-  and labels `needs-human-review` instead.
+  and labels `needs-human-review` instead (`scripts/fix-gate.sh`).
+- A `fix-review` that ends without a push starts no new review, so it also labels
+  `needs-human-review` and mentions the reviewer: the PR never stays at `warning` / `fail` with
+  nobody told.
 - The implementer job fails (and labels `blocked`) when the action ends green without having
   opened a PR or marked the issue `to-refine` — the action can finish "successfully" after
   tool denials without doing anything.

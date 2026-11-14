@@ -24,6 +24,12 @@ collaborator (see security.md). For an old plan, add the marker line to the comm
 A push reached the PR after the commit this run started from. That push has its own review, which
 decides again, so fixing the old report would push a stale change. Expected; nothing to do.
 
+**`needs-human-review` with "fix-review ended without pushing a change".**
+The fixer ran and pushed nothing, so no new review starts. Usual causes: it left a review point as
+a question (see its comment on the PR), the report asked for no code change, or its tools were
+denied (see the job log). Answer the question or fix the point and push; the push starts the next
+review, and a `pass` removes the label.
+
 **The agent's push did not trigger the review.**
 Events created with `GITHUB_TOKEN` never trigger workflows. The action pushes with its own
 App token, which does. If you changed the checkout / credential setup, restore
