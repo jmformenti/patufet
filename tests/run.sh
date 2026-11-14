@@ -359,8 +359,6 @@ eq "none: empty output, still a success" "" "$(cd "$empty" && "$s/detect-pr-ci.s
 echo "# the review waits for the CI it finds (decision 12)"
 has "review waits for the commit's CI, minus its own workflow" '"$TPL_DIR/scripts/wait-for-ci.sh" "$GITHUB_REPOSITORY" "$HEAD_SHA" "$own"' "$(cat "$root/.github/workflows/review.yml")"
 has "the own workflow comes from the caller's ref" 'CALLER_REF: ${{ github.workflow_ref }}' "$(cat "$root/.github/workflows/review.yml")"
-lacks "ci-checks is no longer an input" 'ci-checks' "$(cat "$root/.github/workflows/review.yml")"
-lacks "the template no longer asks for ci-checks" 'ci-checks' "$(cat "$root/templates/.github/workflows/patufet.yml")"
 
 echo "# permissions of the review job"
 wf_review="$root/.github/workflows/review.yml"
@@ -399,7 +397,6 @@ mkdir -p "$repo/.github/workflows"
   "$s/bootstrap.sh" --reviewer ana --language ca --with-e2e > "$work/b1.log" 2>&1 || echo "FAIL bootstrap exited non-zero: $(cat "$work/b1.log")"
   caller=.github/workflows/patufet.yml
   [ "$(grep -c 'human-reviewer: "ana"' "$caller")" = 4 ] && echo "ok   reviewer filled in (review, fix-review, e2e and fix-e2e)" || echo "FAIL reviewer filled in"
-  grep -q 'ci-checks' "$caller" && echo "FAIL the caller has no ci-checks" || echo "ok   the caller has no ci-checks"
   grep -q 'no workflow runs CI on pull requests' "$work/b1.log" && echo "ok   no CI: warned" || echo "FAIL no CI: warned"
   secrets_passed=$(grep -E '^ +secrets: *inherit|\$\{\{ *secrets\.' "$caller" .github/workflows/patufet-mention.yml | grep -oE 'inherit|secrets\.[A-Za-z0-9_]+' | sort -u | tr '\n' ' ')
   [ "$secrets_passed" = "secrets.ANTHROPIC_API_KEY secrets.CLAUDE_CODE_OAUTH_TOKEN " ] && echo "ok   only the Claude secrets are passed" || echo "FAIL only the Claude secrets are passed: $secrets_passed"

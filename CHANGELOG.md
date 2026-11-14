@@ -2,9 +2,8 @@
 
 ## Unreleased
 
-- Docs: removed what earlier versions left behind. `migration.md` no longer walks through the
-  callers older than v1.4.0 (replace them with the template), and `customization.md` no longer
-  lists the label placeholders that no workflow sets.
+## v1.6.0 — 2026-11-14
+
 - **Breaking:** the `ci-checks` input of `review.yml` is removed. It has been ignored since v1.5.0,
   and a caller that still passes it now fails with `Invalid input`: remove it (see
   `docs/migration.md`).
@@ -18,6 +17,9 @@
 - Internal: the steps that set the state after a review and after e2e, and the gate of
   `fix-review`, are scripts with offline tests (`apply-review-verdict.sh`, `apply-e2e-verdict.sh`,
   `fix-gate.sh`). No change in behaviour.
+- Docs: removed what earlier versions left behind. `migration.md` no longer walks through the
+  callers older than v1.4.0 (replace them with the template), and `customization.md` no longer
+  lists the label placeholders that no workflow sets.
 
 ## v1.5.0 — 2026-11-09
 
