@@ -37,19 +37,17 @@ jobs:
       issue-number: ${{ fromJSON(inputs.issue || github.event.issue.number) }}
       language: en
       # Build and test: the agent reproduces your CI workflows, or else what AGENTS.md / CLAUDE.md
-      # say. Set java-version / node-version, here and in fix-review, if CI pins them.
+      # say. Set java-version / node-version, here and in pull-request, if CI pins them.
 
-  # every push to a non-draft PR → wait for the CI of the commit (every other workflow
-  # that runs on it), review, verdict label, and the stage that follows (the jobs below
-  # that `need` it, in this same run)
-  review:
-    if: |
-      github.event_name == 'pull_request' &&
-      contains(fromJSON('["opened","synchronize","ready_for_review","reopened"]'), github.event.action) &&
-      github.event.pull_request.draft == false
-    uses: jmformenti/patufet/.github/workflows/review.yml@v1
-    permissions:
-      contents: read
+  # everything patufet does with a pull request, as jobs of one run: wait for the CI of
+  # the commit (every other workflow that runs on it) and review → verdict label →
+  # fix-review (warning / fail) or e2e (pass) → fix-e2e (e2e failed). A person adding a
+  # verdict label starts the stage that follows it.
+  pull-request:
+    if: github.event_name == 'pull_request'
+    uses: jmformenti/patufet/.github/workflows/pull-request.yml@v1
+    permissions: # the most a stage needs; each stage narrows them
+      contents: write # fix-review pushes; review and e2e only read
       pull-requests: write
       issues: read
       id-token: write
@@ -60,68 +58,6 @@ jobs:
     with:
       language: en
       human-reviewer: ""
-
-  # review says warning / fail, or a person adds that label → apply the review and
-  # push, which starts a new review
-  fix-review:
-    needs: review
-    if: |
-      !cancelled() && (
-        needs.review.outputs.next-stage == 'fix-review' ||
-        (github.event_name == 'pull_request' && github.event.action == 'labeled' &&
-         (github.event.label.name == 'warning' || github.event.label.name == 'fail')))
-    uses: jmformenti/patufet/.github/workflows/fix-review.yml@v1
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: read
-      id-token: write
-    secrets:
-      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-    with:
-      language: en
       max-review-cycles: 10
-      human-reviewer: ""
-
-  # --- e2e (optional): remove these two jobs if the app cannot run on a GitHub runner ---
-  # review says pass, or a person adds `pass` → start the app with
-  # .github/patufet/e2e-up.sh and test it live
-  e2e:
-    needs: review
-    if: |
-      !cancelled() && (
-        needs.review.outputs.next-stage == 'e2e' ||
-        (github.event_name == 'pull_request' && github.event.action == 'labeled' &&
-         github.event.label.name == 'pass'))
-    uses: jmformenti/patufet/.github/workflows/e2e.yml@v1
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: read
-      id-token: write
-    secrets:
-      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-    with:
-      language: en
-      human-reviewer: ""
-
-  # e2e failed → apply its report, like fix-review
-  fix-e2e:
-    needs: e2e
-    if: ${{ !cancelled() && needs.e2e.outputs.next-stage == 'fix-review' }}
-    uses: jmformenti/patufet/.github/workflows/fix-review.yml@v1
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: read
-      id-token: write
-    secrets:
-      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-    with:
-      language: en
-      max-review-cycles: 10
-      human-reviewer: ""
-  # --- end e2e ---
+      # live e2e after a pass: needs .github/patufet/e2e-up.sh to start the app (docs/e2e.md)
+      e2e: false

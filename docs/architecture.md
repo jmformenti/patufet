@@ -71,8 +71,9 @@ Rules that make it work (decision 11):
   deterministic step then sets the label with `GITHUB_TOKEN` (`scripts/set-verdict-label.sh`).
   Events created with `GITHUB_TOKEN` start nothing, so a label can never start a stage twice.
 - **The stages after a review run in the same run.** `review.yml` returns `next-stage`
-  (`scripts/route-review.sh`), and the caller's `fix-review` and `e2e` jobs start on it with
-  `needs: review`; a failed e2e returns `next-stage=fix-review` to the `fix-e2e` job. Every
+  (`scripts/route-review.sh`), and the `fix-review` and `e2e` jobs of `pull-request.yml` start on
+  it with `needs: review`; a failed e2e returns `next-stage=fix-review` to the `fix-e2e` job. The
+  caller has one job for all of them, so the chaining can change without a change in the caller. Every
   stage shows in the PR's checks.
 - **Code changes close the loop through events.** The implementer opens the PR and
   `fix-review` pushes with the Claude App token, whose events do start workflows: `opened` /
@@ -121,7 +122,7 @@ Only comments by `OWNER` / `MEMBER` / `COLLABORATOR` authors or by the `claude[b
 | Workflow | Group | Cancel in progress |
 |---|---|---|
 | implement | `patufet-implement-<repo>-<issue>` | no (a running implementation is never killed) |
-| fix-review (and the caller's fix-e2e job) | `patufet-implement-<repo>-pr-<pr>` | no (a fix in progress finishes; one that finds the PR moved on does nothing) |
+| fix-review (and the fix-e2e job) | `patufet-implement-<repo>-pr-<pr>` | no (a fix in progress finishes; one that finds the PR moved on does nothing) |
 | review | `patufet-review-<repo>-<pr>` | yes (a review of a superseded diff must not label after a newer one; a new push also ends the wait for the previous commit's CI) |
 | e2e | `patufet-e2e-<repo>-<pr>` | yes |
 

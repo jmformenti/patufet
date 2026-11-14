@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- New reusable workflow `pull-request.yml`: review → fix-review → e2e → fix-e2e chained inside
+  patufet. The caller has two jobs (`implement` and `pull-request`) instead of five, the verdict
+  labels are renamed in one place (the `label-*` inputs), and e2e is an input (`e2e: true`).
+  Every input of the stages is passed on; those that differ per stage take a prefix
+  (`review-max-turns`, `fix-timeout-minutes`, `e2e-up-script`...). See `docs/customization.md`.
+- The caller template and the bootstrap install that single job; `--with-e2e` sets `e2e: true`.
+- Compatible: callers with the four separate jobs keep working. Moving is optional
+  (`docs/migration.md`). The checks of a moved caller are named `pull-request / review / review`.
+
 ## v1.6.0 — 2026-11-14
 
 - **Breaking:** the `ci-checks` input of `review.yml` is removed. It has been ignored since v1.5.0,

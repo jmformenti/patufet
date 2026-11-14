@@ -1,18 +1,18 @@
 # Live e2e stage
 
-Optional. `e2e.yml` runs after a review whose verdict is `pass`, as a job of the same run
+Optional, off by default: set `e2e: true` on the caller's `pull-request` job (the bootstrap does
+it with `--with-e2e`). `e2e.yml` runs after a review whose verdict is `pass`, as a job of the same run
 (`needs: review`), or when a person adds the `pass` label. It starts your application on the
 GitHub runner through **your** hook script, installs the Playwright Chromium browser, lets
 Claude drive the app through the Playwright MCP server, and reads the verdict.
 
 Enable it only if the whole application can be started on `ubuntu-latest` within the job
-timeout (Docker Compose, a single `npm start`, an embedded DB...). Otherwise remove the `e2e` and
-`fix-e2e` jobs from the caller —
+timeout (Docker Compose, a single `npm start`, an embedded DB...). Otherwise leave `e2e: false`:
 the flow ends at the code review `pass` and the reviewer merges.
 
 ## Hook contract
 
-### `e2e-up.sh` (input `up-script`, default `.github/patufet/e2e-up.sh`)
+### `e2e-up.sh` (input `e2e-up-script` of `pull-request`, `up-script` of `e2e.yml`; default `.github/patufet/e2e-up.sh`)
 
 - Runs with `bash`, from the repository root, with the PR head commit that got the `pass`
   verdict checked out (not a later push).
@@ -63,7 +63,7 @@ The tester posts one comment whose first line is
 as structured output. A deterministic step reads the structured verdict (or, failing that,
 the marker of *this* run's comment by a trusted author) and then:
 
-- `fail` → labels the PR `fail` and returns `next-stage=fix-review`, which starts the caller's
+- `fail` → labels the PR `fail` and returns `next-stage=fix-review`, which starts the
   `fix-e2e` job in the same run (`needs: e2e`). Nothing happens if the PR has moved on since the
   tested commit, because its new review decides. A re-run first puts `pass` back, so a passing
   re-run is ready for merge;

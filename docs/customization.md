@@ -13,6 +13,10 @@ Three layers, from cheapest to deepest:
 Every input also has a `description:` in its workflow, shown by GitHub when editing the
 caller.
 
+The caller has two jobs: `implement` (an issue) and `pull-request` (a pull request), which runs
+`review`, `fix-review` and `e2e` as its own jobs. The tables below describe the inputs stage by
+stage; [`pull-request`](#pull-request) says under which name the caller sets each one.
+
 Common to `implement`, `review`, `fix-review`, `e2e`:
 
 | Input | Default | Notes |
@@ -45,7 +49,7 @@ Common to `implement`, `review`, `fix-review`, `e2e`:
 | `allowed-bots` | `claude` | The implementer opens PRs as the `claude` bot; without this the action refuses bot-triggered events. Also on `fix-review` and `e2e`. |
 | `label-pass`, `label-warning`, `label-fail`, `label-needs-human-review` | `pass`, `warning`, `fail`, `needs-human-review` | Created if missing (existing labels are never modified). |
 
-Outputs: `verdict` (the label set: `pass` / `warning` / `fail`, empty when none) and `next-stage` (`fix-review` / `e2e`, empty when none), which the caller's `fix-review` and `e2e` jobs read with `needs: review`. `e2e` returns the same two (`next-stage=fix-review` on a failure, for `fix-e2e`).
+Outputs: `verdict` (the label set: `pass` / `warning` / `fail`, empty when none) and `next-stage` (`fix-review` / `e2e`, empty when none), which the `fix-review` and `e2e` jobs of `pull-request.yml` read with `needs: review`. `e2e` returns the same two (`next-stage=fix-review` on a failure, for `fix-e2e`).
 
 `fix-review`:
 
@@ -58,6 +62,31 @@ Outputs: `verdict` (the label set: `pass` / `warning` / `fail`, empty when none)
 `e2e`: see [e2e.md](e2e.md) (`label-pass`, `label-warning`, `label-fail` as in review).
 
 `mention`: `model`, `claude-args-extra`, `timeout-minutes`.
+
+### `pull-request`
+
+`pull-request.yml` runs the three stages above and passes every one of their inputs on, with the
+same defaults (`tests/run.sh` checks it). The rule for the names:
+
+| Input of `pull-request` | Goes to |
+|---|---|
+| `e2e` (default `false`) | Turns the live e2e stage on. With `false` the flow ends at the review's `pass`. |
+| `language`, `model`, `human-reviewer`, `branch-prefix`, `allowed-bots`, `claude-args-extra`, `show-full-output`, `label-pass`, `label-warning`, `label-fail`, `label-needs-human-review` | The input of the same name of every stage that has it. One value for the whole pull request. |
+| `ci-wait-timeout-minutes` | `review` |
+| `max-review-cycles`, `java-version`, `node-version` | `fix-review` (and `fix-e2e`, which is the same workflow) |
+| `install-playwright`, `playwright-mcp-version` | `e2e` |
+| `review-extra-instructions-file`, `review-max-turns`, `review-allowed-tools`, `review-timeout-minutes` | `review`, without the prefix |
+| `fix-extra-instructions-file`, `fix-max-turns`, `fix-allowed-tools`, `fix-timeout-minutes` | `fix-review` and `fix-e2e`, without the prefix |
+| `e2e-up-script`, `e2e-down-script`, `e2e-extra-instructions-file`, `e2e-max-turns`, `e2e-allowed-tools`, `e2e-timeout-minutes` | `e2e`, without the prefix |
+
+`model` is one value for the three stages. To give each stage its own, call `review.yml`,
+`fix-review.yml` and `e2e.yml` as separate jobs, as the callers older than v1.7.0 do: copy the
+four jobs and their `needs:` / `if:` from `pull-request.yml`.
+
+The caller's job must grant `contents: write`, `pull-requests: write`, `issues: read`,
+`id-token: write` and `actions: read`. A job of a reusable workflow cannot get more than its
+caller grants, and each stage declares only what it needs: `review` and `e2e` run with
+`contents: read`.
 
 ### The CI-aware review
 
@@ -123,11 +152,13 @@ re-runs the jobs that need it too.
 ### Renaming the labels
 
 Rename when a flow label already means something else in the repository (a project board's
-`blocked`, a bot's `pass`...). Three places, all in the consumer repository:
+`blocked`, a bot's `pass`...). All in the caller, in the consumer repository:
 
-1. the `label-*` inputs of every job that has them (the workflows set the verdict labels with
-   them, and the implementer's prompt receives the issue labels);
-2. the caller's `if:` conditions, which compare `github.event.label.name` with literal names;
+1. the verdict labels: the `label-*` inputs of the `pull-request` job, and nothing else. The
+   workflow sets them and starts the stage a person asks for with one from those values;
+2. the issue labels: the `label-*` inputs of the `implement` job (the implementer's prompt
+   receives them), and for `label-ready` also the job's `if:`, which compares
+   `github.event.label.name` with the literal name;
 3. nothing for `/plan-issue`: it reads the `label-ready` value from the caller.
 
 Create the renamed labels once (`gh label create <name>`); review creates its verdict labels

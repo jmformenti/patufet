@@ -5,6 +5,7 @@
 | Path | What | Rule |
 |---|---|---|
 | `.github/workflows/{implement,review,fix-review,e2e,mention}.yml` | reusable workflows | orchestration only; logic goes in `scripts/` |
+| `.github/workflows/pull-request.yml` | the reusable workflow consumers call for a PR: chains `review`, `fix-review` and `e2e` | a new input of a stage is added here too, with the same default (`tests/run.sh` fails otherwise) |
 | `.github/workflows/self-check.yml` | CI of this repository | lint + offline tests |
 | `prompts/*.md` | base prompts | values only through `{{placeholders}}` (see docs/customization.md) |
 | `scripts/` | helpers the workflows run, and `bootstrap.sh` | bash + jq (+ python3 stdlib); no dependency the runner lacks |

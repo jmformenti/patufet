@@ -91,7 +91,7 @@ checks for the secret. Read its output: the final "Next steps" block and any `WA
   [docs/customization.md](docs/customization.md#the-ci-aware-review).
 - Build and test commands: the agents reproduce the CI workflows and fall back to `AGENTS.md`,
   `CLAUDE.md` or the README, so check that those describe them correctly.
-- `java-version`, `node-version` (`implement` and `fix-review`): set them if CI pins a version
+- `java-version`, `node-version` (in both jobs, `implement` and `pull-request`): set them if CI pins a version
   that differs from what `ubuntu-latest` brings.
 - Keep `language` and `human-reviewer` as the bootstrap set them.
 
@@ -144,7 +144,7 @@ The PR body is the hand-over report. Put in it:
 - the human steps of section 7, done or pending, with the exact commands.
 
 Expected: **this PR gets no automatic review.** The Claude action refuses to run from a
-workflow file that differs from the default branch's copy and fails the `review` job with
+workflow file that differs from the default branch's copy and fails the `pull-request / review` job with
 an explicit validation error. This is normal; the owner merges by hand after the usual CI
 is green. Every later PR is reviewed. The same happens on any future PR that edits
 `patufet.yml`.

@@ -363,9 +363,18 @@ has "the own workflow comes from the caller's ref" 'CALLER_REF: ${{ github.workf
 echo "# permissions of the review job"
 wf_review="$root/.github/workflows/review.yml"
 eq "review.yml declares no permissions (a caller without actions: read would stop starting)" "" "$(grep -E '^ *permissions:' "$wf_review")"
-caller_review=$(awk '/^  review:/{f=1;next} /^  [a-z0-9-]+:$/{f=0} f' "$root/templates/.github/workflows/patufet.yml")
+wf_job() { awk -v j="  $2:" '$0 == j {f=1; next} /^  [a-z0-9-]+:$/ {f=0} f' "$1"; }  # wf_job <file> <job>
+wf_pr="$root/.github/workflows/pull-request.yml"
+caller_tpl="$root/templates/.github/workflows/patufet.yml"
 for perm in "contents: read" "pull-requests: write" "issues: read" "id-token: write" "actions: read"; do
-  has "caller's review job grants $perm" "$perm" "$caller_review"
+  has "pull-request.yml gives its review job $perm" "$perm" "$(wf_job "$wf_pr" review)"
+done
+# a nested job cannot get more than the caller's job grants: the run would not start
+for perm in "contents: write" "pull-requests: write" "issues: read" "id-token: write" "actions: read"; do
+  has "caller's pull-request job grants $perm" "$perm" "$(wf_job "$caller_tpl" pull-request)"
+done
+for job in review e2e; do
+  lacks "pull-request.yml: $job cannot write contents" "contents: write" "$(wf_job "$wf_pr" "$job")"
 done
 
 echo "# github-output.sh"
@@ -396,12 +405,12 @@ mkdir -p "$repo/.github/workflows"
   if "$s/bootstrap.sh" --reviewer --with-e2e > /dev/null 2>&1; then echo "FAIL an option is not accepted as a value"; else echo "ok   an option is not accepted as a value"; fi
   "$s/bootstrap.sh" --reviewer ana --language ca --with-e2e > "$work/b1.log" 2>&1 || echo "FAIL bootstrap exited non-zero: $(cat "$work/b1.log")"
   caller=.github/workflows/patufet.yml
-  [ "$(grep -c 'human-reviewer: "ana"' "$caller")" = 4 ] && echo "ok   reviewer filled in (review, fix-review, e2e and fix-e2e)" || echo "FAIL reviewer filled in"
+  [ "$(grep -c 'human-reviewer: "ana"' "$caller")" = 1 ] && echo "ok   reviewer filled in" || echo "FAIL reviewer filled in"
   grep -q 'no workflow runs CI on pull requests' "$work/b1.log" && echo "ok   no CI: warned" || echo "FAIL no CI: warned"
   secrets_passed=$(grep -E '^ +secrets: *inherit|\$\{\{ *secrets\.' "$caller" .github/workflows/patufet-mention.yml | grep -oE 'inherit|secrets\.[A-Za-z0-9_]+' | sort -u | tr '\n' ' ')
   [ "$secrets_passed" = "secrets.ANTHROPIC_API_KEY secrets.CLAUDE_CODE_OAUTH_TOKEN " ] && echo "ok   only the Claude secrets are passed" || echo "FAIL only the Claude secrets are passed: $secrets_passed"
-  [ "$(grep -c 'language: "ca"$' "$caller")" = 5 ] && echo "ok   language filled in" || echo "FAIL language filled in"
-  grep -q 'e2e.yml@v1$' "$caller" && echo "ok   e2e job installed" || echo "FAIL e2e job installed"
+  [ "$(grep -c 'language: "ca"$' "$caller")" = 2 ] && echo "ok   language filled in" || echo "FAIL language filled in"
+  grep -qx '      e2e: true' "$caller" && echo "ok   e2e stage turned on" || echo "FAIL e2e stage turned on"
   [ -f .github/patufet/e2e-up.sh ] && echo "ok   e2e hooks copied" || echo "FAIL e2e hooks copied"
   grep -q 'label create pass' "$GH_STUB_LOG" && echo "FAIL existing label recreated" || echo "ok   existing label left untouched"
   [ "$(grep -c 'label create' "$GH_STUB_LOG")" = 7 ] && echo "ok   7 missing labels created" || echo "FAIL 7 missing labels created"
@@ -410,7 +419,7 @@ mkdir -p "$repo/.github/workflows"
   before=$(cat .github/workflows/*.yml .github/patufet/* | md5sum)
   "$s/bootstrap.sh" --reviewer bob --language en --ref v9 > "$work/b2.log" 2>&1 || echo "FAIL bootstrap re-run exited non-zero: $(cat "$work/b2.log")"
   [ "$(cat .github/workflows/*.yml .github/patufet/* | md5sum)" = "$before" ] \
-    && echo "ok   re-run modifies no existing file (e2e job, owner's edit, ref kept)" \
+    && echo "ok   re-run modifies no existing file (e2e stage, owner's edit, ref kept)" \
     || echo "FAIL re-run modifies no existing file"
   rm -rf .github .claude
   mkdir -p .github/workflows
@@ -419,6 +428,8 @@ mkdir -p "$repo/.github/workflows"
   grep -q 'review will wait for: .github/workflows/ci.yml .github/workflows/lint.yaml' "$work/b3.log" \
     && echo "ok   CI present: the workflows the review waits for are named" || echo "FAIL CI present: the workflows the review waits for are named"
   grep -q 'no workflow runs CI' "$work/b3.log" && echo "FAIL CI present: no warning" || echo "ok   CI present: no warning"
+  grep -qx '      e2e: false' .github/workflows/patufet.yml && echo "ok   without --with-e2e the stage stays off" || echo "FAIL without --with-e2e the stage stays off"
+  [ -f .github/patufet/e2e-up.sh ] && echo "FAIL without --with-e2e no hook is copied" || echo "ok   without --with-e2e no hook is copied"
   rm -rf .github .claude
   "$s/bootstrap.sh" --reviewer ana --language 'Catalan: Valencian "x"' > /dev/null 2>&1 || echo "FAIL bootstrap with free-text language"
   grep -qxF '      language: "Catalan: Valencian \"x\""' .github/workflows/patufet.yml \
@@ -460,16 +471,45 @@ for step in 'Start the application (e2e-up hook)' 'Stop the application (e2e-dow
   lacks "e2e: no token in '$step'" 'GH_TOKEN' "$(awk -v n="      - name: $step" '$0 == n {f=1; next} /^      - name:/{f=0} f' "$root/.github/workflows/e2e.yml")"
 done
 has "implement: the issue labels are ensured before the first one is set" 'scripts/ensure-labels.sh" "$LABEL_READY=' "$(sed '/name: Extract the approved plan/q' "$root/.github/workflows/implement.yml")"
-caller_job() { awk -v j="  $1:" '$0 == j {f=1; next} /^  [a-z0-9-]+:$/ {f=0} f' "$root/templates/.github/workflows/patufet.yml"; }
 for job in fix-review e2e; do
-  has "caller: $job needs the review" 'needs: review' "$(caller_job "$job")"
-  has "caller: $job also runs when the review is skipped (a person's label)" '!cancelled()' "$(caller_job "$job")"
+  has "pull-request: $job needs the review" 'needs: review' "$(wf_job "$wf_pr" "$job")"
+  has "pull-request: $job also runs when the review is skipped (a person's label)" '!cancelled()' "$(wf_job "$wf_pr" "$job")"
 done
-has "caller: fix-review follows the review's next stage" "needs.review.outputs.next-stage == 'fix-review'" "$(caller_job fix-review)"
-has "caller: e2e follows the review's next stage" "needs.review.outputs.next-stage == 'e2e'" "$(caller_job e2e)"
-has "caller: fix-e2e follows a failed e2e" "needs.e2e.outputs.next-stage == 'fix-review'" "$(caller_job fix-e2e)"
-e2e_block=$(sed -n '/# --- e2e (optional)/,/# --- end e2e ---/p' "$root/templates/.github/workflows/patufet.yml")
-has "caller: fix-e2e is removed with the e2e block" '  fix-e2e:' "$e2e_block"
+has "pull-request: fix-review follows the review's next stage" "needs.review.outputs.next-stage == 'fix-review'" "$(wf_job "$wf_pr" fix-review)"
+has "pull-request: fix-review follows a person's warning or fail" 'github.event.label.name == inputs.label-warning || github.event.label.name == inputs.label-fail' "$(wf_job "$wf_pr" fix-review)"
+has "pull-request: e2e follows the review's next stage" "needs.review.outputs.next-stage == 'e2e'" "$(wf_job "$wf_pr" e2e)"
+has "pull-request: e2e follows a person's pass" 'github.event.label.name == inputs.label-pass' "$(wf_job "$wf_pr" e2e)"
+has "pull-request: e2e only runs when the caller turns it on" 'inputs.e2e && !cancelled()' "$(wf_job "$wf_pr" e2e)"
+has "pull-request: fix-e2e follows a failed e2e" "needs.e2e.outputs.next-stage == 'fix-review'" "$(wf_job "$wf_pr" fix-e2e)"
+lacks "pull-request: no label name is a literal" "label.name == '" "$(cat "$wf_pr")"
+eq "pull-request: fix-e2e is fix-review with the same inputs" "$(wf_job "$wf_pr" fix-review | sed -n '/^    uses:/,$p' | grep -v -e '^$' -e '^  #')" "$(wf_job "$wf_pr" fix-e2e | sed -n '/^    uses:/,$p' | grep -v -e '^$' -e '^  #')"
+has "caller: one job for the pull request" 'uses: jmformenti/patufet/.github/workflows/pull-request.yml@v1' "$(wf_job "$caller_tpl" pull-request)"
+eq "caller: implement and pull-request are its only jobs" "implement pull-request " "$(sed -n '/^jobs:/,$p' "$caller_tpl" | grep -oE '^  [a-z0-9-]+:$' | tr -d ' :' | tr '\n' ' ')"
+
+echo "# pull-request.yml passes every input of the stages on, with the same default"
+# "name<TAB>type<TAB>default" of each workflow_call input
+wf_inputs() {
+  awk '/^    inputs:/{f=1;next} /^    secrets:/{f=0} !f{next}
+       /^      [a-z0-9-]+:$/{n=$1; sub(/:$/,"",n)}
+       /^        type: /{t=$0; sub(/^        type: /,"",t)}
+       /^        default: /{d=$0; sub(/^        default: /,"",d); print n "\t" t "\t" d}' "$1"
+}
+wf_inputs "$wf_pr" > "$work/pr-inputs"
+for pair in review:review fix-review:fix e2e:e2e; do
+  stage=${pair%%:*}; prefix=${pair##*:}
+  wf_inputs "$root/.github/workflows/$stage.yml" > "$work/stage-inputs"
+  if [ -s "$work/stage-inputs" ]; then pass "$stage: inputs found"; else fail "$stage: inputs found"; fi
+  while IFS=$'\t' read -r name type default; do
+    case "$name" in
+      extra-instructions-file|max-turns|allowed-tools|timeout-minutes|up-script|down-script) mapped="$prefix-$name" ;;
+      *) mapped="$name" ;;
+    esac
+    eq "$stage: $name is $mapped, same type and default" "$mapped"$'\t'"$type"$'\t'"$default" "$(awk -F'\t' -v n="$mapped" '$1 == n' "$work/pr-inputs")"
+    for job in $([ "$stage" = fix-review ] && echo "fix-review fix-e2e" || echo "$stage"); do
+      has "$job gets $name" "      $name: \${{ inputs.$mapped }}" "$(wf_job "$wf_pr" "$job")"
+    done
+  done < "$work/stage-inputs"
+done
 for stage in review e2e; do
   has "$stage: the report has no line starting with #" 'No line of this comment may start with `#`' "$(cat "$root/prompts/$stage.md")"
 done
@@ -487,7 +527,7 @@ done
 literal=$(grep -nE -- '--(add|remove)-label [a-z]' "$root"/prompts/*.md || true)
 eq "no hard-coded label names in prompts" "" "$literal"
 docs=$(cat "$root/docs/customization.md" "$root/docs/e2e.md")
-for wf in "$root"/.github/workflows/{implement,review,fix-review,e2e,mention}.yml; do
+for wf in "$root"/.github/workflows/{implement,review,fix-review,e2e,mention,pull-request}.yml; do
   while IFS= read -r input; do
     case "$input" in label-*) key="label-" ;; *) key="$input" ;; esac
     if grep -qF "\`$key" <<< "$docs"; then pass "$(basename "$wf" .yml): input $input documented"; else fail "$(basename "$wf" .yml): input $input missing from docs/customization.md or docs/e2e.md"; fi

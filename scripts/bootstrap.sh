@@ -137,7 +137,7 @@ fi
 
 # --- fill in the callers ----------------------------------------------------
 # Only the files created above: an existing caller may hold the owner's edits
-# (the e2e job, a pinned version) and is never touched.
+# (the e2e stage, a pinned version) and is never touched.
 sed_value() { printf '%s' "$1" | sed -e 's/[\\|&]/\\&/g'; }
 # A YAML double-quoted string: free text such as "Catalan: Valencian" stays valid YAML
 yaml_str() { local v="${1//\\/\\\\}"; v="${v//\"/\\\"}"; printf '"%s"' "$v"; }
@@ -147,8 +147,8 @@ if ! $dry_run && was_created "$caller"; then
     -e "s|language: en$|language: $(sed_value "$(yaml_str "$language")")|" \
     -e "s|human-reviewer: \"\"$|human-reviewer: $(sed_value "$(yaml_str "$reviewer")")|" \
     "$caller"
-  if ! $with_e2e; then
-    sed -i.bak '/# --- e2e (optional)/,/# --- end e2e ---/d' "$caller"
+  if $with_e2e; then
+    sed -i.bak -e 's|^      e2e: false$|      e2e: true|' "$caller"
   fi
   rm -f "$caller.bak"
 fi
@@ -181,7 +181,7 @@ label fail               B60205 "Automatic review: serious problems"
 label needs-human-review 5319E7 "Cycle limit reached, human review needed"
 if [ -n "$existing_labels" ] && grep -qxE 'ready-to-implement|in-progress|to-refine|blocked|pass|warning|fail|needs-human-review' <<<"$existing_labels"; then
   echo "WARNING: some flow labels already existed. If they mean something else here, rename patufet's"
-  echo "         with the label-* inputs and update the caller's if: conditions (docs/customization.md)."
+  echo "         with the label-* inputs (docs/customization.md)."
 fi
 
 # --- secrets -----------------------------------------------------------------
