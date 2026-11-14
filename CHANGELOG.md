@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.7.0 — 2026-11-14
+
 - New reusable workflow `pull-request.yml`: review → fix-review → e2e → fix-e2e chained inside
   patufet. The caller has two jobs (`implement` and `pull-request`) instead of five, the verdict
   labels are renamed in one place (the `label-*` inputs), and e2e is an input (`e2e: true`).
