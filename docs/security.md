@@ -69,20 +69,20 @@ it before anything with write access runs.
 ## Permissions per job
 
 Declared in each reusable workflow and required in the caller (the caller cannot grant less),
-except on `review`, which declares none and takes those of the caller's job: its `actions` and
-`checks` are opt-in, and a declared list could not leave them optional
+except on `review`, which declares none and takes those of the caller's job: its `actions: read`
+is opt-in, and a declared list could not leave it optional
 ([decision 10](decisions.md#10-the-repositorys-ci-is-the-source-of-truth-the-review-waits-for-it-in-pull_request)).
 So on that job the caller's list is the only limit: always declare it.
 
 They bound the steps that use `GITHUB_TOKEN`, not the agents (see [Tokens](#tokens)):
 
-| Workflow | contents | pull-requests | issues | id-token | actions | checks |
-|---|---|---|---|---|---|---|
-| implement | write | write | write | write | – | – |
-| fix-review | write | write | read | write | – | – |
-| review | read | write | read | write | read | – |
-| e2e | read | write | read | write | – | – |
-| mention | read | read | read | write | read | – |
+| Workflow | contents | pull-requests | issues | id-token | actions |
+|---|---|---|---|---|---|
+| implement | write | write | write | write | – |
+| fix-review | write | write | read | write | – |
+| review | read | write | read | write | read |
+| e2e | read | write | read | write | – |
+| mention | read | read | read | write | read |
 
 ## Residual risks, honestly
 

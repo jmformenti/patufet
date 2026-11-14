@@ -3,9 +3,9 @@
 # comment carrying the "<!-- patufet:review" or "<!-- patufet:e2e" marker
 # written by a trusted author (the bot or a repository collaborator). After a
 # failed live test that is the e2e report, which is what fix-e2e must apply:
-# the review before it said pass. Untrusted
-# comments are ignored because the fix-review agent runs with write access and
-# must never act on instructions planted by an arbitrary commenter.
+# the review before it said pass. Untrusted comments are ignored because the
+# fix-review agent runs with write access and must never act on instructions
+# planted by an arbitrary commenter.
 #
 # Usage: find-review-report.sh <owner/repo> <pr-number>
 # Exit code 1 (and nothing on stdout) when there is no trusted report.

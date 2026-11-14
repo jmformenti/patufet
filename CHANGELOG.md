@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Docs: removed what earlier versions left behind. `migration.md` no longer walks through the
+  callers older than v1.4.0 (replace them with the template), and `customization.md` no longer
+  lists the label placeholders that no workflow sets.
 - **Breaking:** the `ci-checks` input of `review.yml` is removed. It has been ignored since v1.5.0,
   and a caller that still passes it now fails with `Invalid input`: remove it (see
   `docs/migration.md`).
