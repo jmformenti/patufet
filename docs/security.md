@@ -86,6 +86,11 @@ They bound the steps that use `GITHUB_TOKEN`, not the agents (see [Tokens](#toke
 | e2e | read | write | read | write | – |
 | mention | read | read | read | write | read |
 
+The caller's `pull-request` job grants the most a stage needs (`contents: write`,
+`pull-requests: write`, `issues: read`, `id-token: write`, `actions: read`), and
+`pull-request.yml` gives each of its jobs the row above: `review` and `e2e`, which check out and
+run the code of the PR, keep `contents: read`.
+
 ## Residual risks, honestly
 
 - A collaborator account compromise gives full control of the flow (as of any CI).

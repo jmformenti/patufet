@@ -11,6 +11,27 @@ text change, a test) and run one full cycle before trusting it with real work.
 - Major bump: the changelog lists the renamed inputs / new files; update the caller and the
   extension files, then change `@v1` → `@v2`.
 
+### To v1.7.0
+
+Compatible and optional: a caller with the `review`, `fix-review`, `e2e` and `fix-e2e` jobs keeps
+working, since those workflows stay. To move to the single `pull-request` job, in
+`.github/workflows/patufet.yml`:
+
+1. Replace those four jobs with the `pull-request` job of
+   [the template](../templates/.github/workflows/patufet.yml). Keep `implement` as it is.
+2. Copy your values into its `with:`. `language`, `model`, `human-reviewer`, `max-review-cycles`,
+   `java-version`, `node-version` and the `label-*` keep their names and are set once. `max-turns`,
+   `allowed-tools`, `timeout-minutes` and `extra-instructions-file` take the stage as a prefix
+   (`review-`, `fix-`, `e2e-`), and the e2e hooks are `e2e-up-script` / `e2e-down-script`
+   ([customization.md](customization.md#pull-request)).
+3. Set `e2e: true` if you had the `e2e` job, `e2e: false` otherwise.
+4. Check the permissions of the job: `contents: write`, `pull-requests: write`, `issues: read`,
+   `id-token: write`, `actions: read`. With fewer the run does not start.
+5. If a branch protection rule requires the checks by name, they are now
+   `pull-request / review / review` and `pull-request / e2e / e2e`.
+
+Like every PR that edits `patufet.yml`, this one gets no automatic review: merge it by hand.
+
 ### To v1.6.0
 
 **Breaking:** the `ci-checks` input no longer exists. A caller that still passes it fails at once

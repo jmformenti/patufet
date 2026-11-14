@@ -47,9 +47,10 @@ step is over. Steps after it only get `GITHUB_TOKEN`. patufet does not need that
 stages after a review are jobs of the same run, chained with `needs:` (decision 11).
 
 **`fix-review` or `e2e` did not start after the review, although the label is there.**
-They are jobs of the review's own run: look for them in the same run, next to `review`. If they
-are not there, the caller predates v1.4.0. Its `fix-review` and `e2e` jobs need `needs: review`
-and an `if:` on `needs.review.outputs.next-stage` (see [migration.md](migration.md)). The label
+They are jobs of the review's own run: look for them in the same run, next to `review`
+(`pull-request / fix-review`, `pull-request / e2e`). `e2e` is skipped unless the caller sets
+`e2e: true`. If they are not there at all, the caller predates v1.4.0: replace its jobs with the
+`pull-request` job of the template (see [migration.md](migration.md)). The label
 itself starts nothing, because the workflow sets it with `GITHUB_TOKEN`. A label that a person
 adds does start its stage.
 
@@ -112,8 +113,9 @@ flaky runner mirror. The template wraps it in `timeout 300` with 3 attempts. If 
 already has Chromium, set `install-playwright: false`.
 
 **`e2e up-script not found`.**
-The caller has the e2e job but the hook was not created. Either add
-`.github/patufet/e2e-up.sh` (see e2e.md) or delete the `e2e` and `fix-e2e` jobs from the caller.
+The caller turns the e2e stage on but the hook was not created. Either add
+`.github/patufet/e2e-up.sh` (see e2e.md) or set `e2e: false` on the caller's `pull-request` job
+(in a caller older than v1.7.0, delete its `e2e` and `fix-e2e` jobs).
 
 **The app registers a user then gets 403.**
 Project-specific readiness/seeding logic belongs to your hook; make it idempotent and
@@ -143,7 +145,7 @@ that actionlint does not know yet; `self-check.yml` ignores exactly that message
 
 **Re-running the bootstrap did not update my caller.**
 By design: it never modifies an existing file. Edit `.github/workflows/patufet.yml` by hand
-(e.g. to add the e2e stage, copy the `e2e` and `fix-e2e` jobs from `templates/.github/workflows/patufet.yml`).
+(e.g. to add the e2e stage, set `e2e: true` on the `pull-request` job and copy the hooks from `templates/.github/patufet/`).
 
 **Nothing runs at all.**
 Check, in order: the Claude GitHub App is installed on the repository; the secret exists;

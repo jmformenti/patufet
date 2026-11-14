@@ -127,6 +127,9 @@ Then:
 | E2E | verdict `pass`, in the review's own run; or you add `pass` | `e2e.yml` (optional) | app started by your `e2e-up.sh`, tested live with Playwright; `fail` runs `fix-e2e` in the same run, success mentions the reviewer |
 | Merge | you | — | — |
 
+Review, fix and e2e are jobs of one reusable workflow, `pull-request.yml`: your caller has two
+jobs, `implement` and `pull-request`.
+
 The full state machine, markers and concurrency rules: [docs/architecture.md](docs/architecture.md).
 
 ## Configuration

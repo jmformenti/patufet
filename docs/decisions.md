@@ -201,6 +201,15 @@ patufet.
   that run.
 - The PR's checks still list skipped jobs, as they do today.
 
+**Update, v1.7.0.** The chain (`needs:` and `if:`) moved from each consumer's caller into
+`pull-request.yml`, a reusable workflow that calls `review.yml`, `fix-review.yml` and `e2e.yml`
+with `uses: ./...`. GitHub resolves that path at the commit of `pull-request.yml` itself, and
+`job.workflow_sha` and `github.workflow_ref` keep their values one level deeper (decisions 1 and
+12 hold; tried on the sandbox, issue #21). The caller has one job, the `if:` conditions read the
+`label-*` inputs instead of literal names, and changing the chain no longer changes the callers.
+The cost: longer check names (`pull-request / review / review`) and a caller job that grants
+`contents: write`, which each stage then narrows.
+
 ## 12. The review finds the CI of the commit; no `ci-checks`
 
 **Status.** Accepted on 2026-11-08, for v1.5.0. It amends decision 10: the review still waits for
