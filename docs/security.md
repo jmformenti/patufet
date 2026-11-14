@@ -51,6 +51,8 @@ it before anything with write access runs.
   one across people or organisations, and use an API key for anything that is not your own
   usage. See Anthropic's [legal and compliance](https://code.claude.com/docs/en/legal-and-compliance) page.
 - Checkout uses `persist-credentials: false`; pushes go through `gh auth setup-git`.
+- In `e2e`, the job's `GITHUB_TOKEN` is set only on the steps that call `gh`. The hooks and the
+  application they start are code of the PR and do not get it.
 - **Inside the action, `gh` and git use the Claude App token**, not the job's
   `GITHUB_TOKEN`. The action requests it with `contents`, `pull_requests` and `issues`
   **write** whatever the job's `permissions:` say (claude-code-action `src/github/token.ts`),

@@ -23,7 +23,7 @@ on:
         type: string
         default: ''
       human-reviewer:
-        description: GitHub login (without @) to mention when the cycle limit is reached
+        description: GitHub login (without @) to mention when the cycle limit is reached or the fix pushes nothing
         type: string
         default: ''
       extra-instructions-file:
@@ -59,7 +59,7 @@ on:
         type: boolean
         default: true
       label-needs-human-review:
-        description: Label set when the cycle limit is reached
+        description: Label set when the cycle limit is reached or the fix pushes nothing
         type: string
         default: needs-human-review
       timeout-minutes:
@@ -116,37 +116,17 @@ jobs:
         env:
           MAX_CYCLES: ${{ inputs.max-review-cycles }}
 
-      # A push since the commit this run started from has its own review coming,
-      # which decides again. Fixing the old report would push a stale change.
+      # Not when the PR has moved on since the commit this run started from, and
+      # not past the cycle limit, where the PR goes to a person (scripts/fix-gate.sh)
       - name: Decide whether to fix
         id: gate
         env:
           COUNT: ${{ steps.cycles.outputs.count }}
           MAX_CYCLES: ${{ inputs.max-review-cycles }}
           STARTED_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          head=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
-          if [ "$head" != "$STARTED_SHA" ]; then
-            echo "The PR has moved on from ${STARTED_SHA:0:7} to ${head:0:7}; its new review decides again. Nothing to fix."
-            echo "state=moved" >> "$GITHUB_OUTPUT"
-          elif [ "$COUNT" -ge "$MAX_CYCLES" ]; then
-            echo "state=limit" >> "$GITHUB_OUTPUT"
-          else
-            echo "state=fix" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Hand over to a human if the cycle limit is reached
-        if: steps.gate.outputs.state == 'limit'
-        env:
           LABEL_NHR: ${{ inputs.label-needs-human-review }}
-          MAX_CYCLES: ${{ inputs.max-review-cycles }}
           REVIEWER: ${{ inputs.human-reviewer }}
-        run: |
-          "$TPL_DIR/scripts/ensure-labels.sh" "$LABEL_NHR=5319E7"
-          gh pr edit "$PR_NUMBER" --add-label "$LABEL_NHR"
-          mention=""
-          [ -n "$REVIEWER" ] && mention=" @$REVIEWER"
-          gh pr comment "$PR_NUMBER" --body "⚠️ patufet: $MAX_CYCLES automatic review cycles reached without a \`pass\` verdict. Manual review needed.$mention"
+        run: '"$TPL_DIR/scripts/fix-gate.sh" before "$PR_NUMBER"'
 
       - name: Configure git credentials for push
         if: steps.gate.outputs.state == 'fix'
@@ -202,6 +182,18 @@ jobs:
             ${{ inputs.model != '' && format('--model {0}', inputs.model) || '' }}
             ${{ inputs.claude-args-extra }}
           prompt: ${{ steps.prompt.outputs.text }}
+
+      # A fix that pushed nothing starts no new review: the PR would stay at its
+      # verdict with nobody told. Also when the agent failed, or a step before it
+      # did and it never ran; not on cancellation.
+      - name: Hand over to a human if nothing was pushed
+        if: ${{ !cancelled() && steps.gate.outputs.state == 'fix' }}
+        env:
+          STARTED_SHA: ${{ github.event.pull_request.head.sha }}
+          LABEL_NHR: ${{ inputs.label-needs-human-review }}
+          REVIEWER: ${{ inputs.human-reviewer }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: '"$TPL_DIR/scripts/fix-gate.sh" after "$PR_NUMBER"'
 
       - name: Summary
         if: always() && env.TPL_DIR != ''

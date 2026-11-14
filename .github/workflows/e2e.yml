@@ -112,8 +112,9 @@ jobs:
     outputs:
       verdict: ${{ steps.verdict.outputs.verdict }}
       next-stage: ${{ steps.verdict.outputs.next-stage }}
+    # No GH_TOKEN here: the up-script and the application are code of the PR, and
+    # must not get the job's token. The steps that call `gh` set it themselves.
     env:
-      GH_TOKEN: ${{ github.token }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
       # Identifies this run's report comment, so an earlier run's never counts
       RUN_KEY: ${{ github.run_id }}.${{ github.run_attempt }}
@@ -136,6 +137,7 @@ jobs:
           echo "TPL_DIR=$TPL_DIR" >> "$GITHUB_ENV"
           echo "patufet template $TEMPLATE_REPO@$TEMPLATE_SHA extracted to $TPL_DIR"
         env:
+          GH_TOKEN: ${{ github.token }}
           TEMPLATE_REPO: ${{ job.workflow_repository }}
           TEMPLATE_SHA: ${{ job.workflow_sha }}
 
@@ -145,12 +147,13 @@ jobs:
       - name: Restore the pass label on a re-run
         if: github.run_attempt > 1
         env:
+          GH_TOKEN: ${{ github.token }}
           LABEL_PASS: ${{ inputs.label-pass }}
           LABEL_WARNING: ${{ inputs.label-warning }}
           LABEL_FAIL: ${{ inputs.label-fail }}
           TESTED_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          head=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
+          head=$("$TPL_DIR/scripts/pr-head.sh" "$PR_NUMBER")
           if [ "$head" = "$TESTED_SHA" ]; then
             "$TPL_DIR/scripts/set-verdict-label.sh" "$PR_NUMBER" pass "$LABEL_PASS" "$LABEL_WARNING" "$LABEL_FAIL"
           fi
@@ -194,6 +197,7 @@ jobs:
       - name: Gather context (linked issue, approved plan)
         id: context
         env:
+          GH_TOKEN: ${{ github.token }}
           BRANCH_PREFIX: ${{ inputs.branch-prefix }}
         run: '"$TPL_DIR/scripts/gather-context.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER" "$BRANCH_PREFIX" e2e "$RUNNER_TEMP" >> "$GITHUB_OUTPUT"'
 
@@ -239,6 +243,7 @@ jobs:
         id: verdict
         if: ${{ !cancelled() && steps.claude.conclusion != 'skipped' }}
         env:
+          GH_TOKEN: ${{ github.token }}
           STRUCTURED: ${{ steps.claude.outputs.structured_output }}
           CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
           CLAUDE_EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
@@ -248,29 +253,7 @@ jobs:
           REVIEWER: ${{ inputs.human-reviewer }}
           TESTED_SHA: ${{ github.event.pull_request.head.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          if [ -z "$CLAUDE_EXECUTION_FILE" ]; then
-            echo "::error::The Claude action did not run (see its step log). No verdict."
-            exit 1
-          fi
-          verdict=$("$TPL_DIR/scripts/read-verdict.sh" e2e "$GITHUB_REPOSITORY" "$PR_NUMBER" "run=$RUN_KEY")
-          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
-          if [ -z "$verdict" ] || [ "$CLAUDE_OUTCOME" != "success" ]; then
-            gh pr comment "$PR_NUMBER" --body "⚠️ patufet: the live e2e run produced no verdict (outcome: $CLAUDE_OUTCOME). Manual check needed. See $RUN_URL"
-            exit 1
-          fi
-          if [ "$verdict" = "pass" ]; then
-            body=$("$TPL_DIR/scripts/e2e-pass-comment.sh" "$PR_NUMBER" "$TESTED_SHA" "$LABEL_PASS" "$REVIEWER")
-            gh pr comment "$PR_NUMBER" --body "$body"
-            exit 0
-          fi
-          head=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
-          if [ "$head" != "$TESTED_SHA" ]; then
-            echo "The PR has moved on from ${TESTED_SHA:0:7} to ${head:0:7}; the review of the new commit sets the state."
-            exit 0
-          fi
-          "$TPL_DIR/scripts/set-verdict-label.sh" "$PR_NUMBER" fail "$LABEL_PASS" "$LABEL_WARNING" "$LABEL_FAIL"
-          echo "next-stage=fix-review" >> "$GITHUB_OUTPUT"
+        run: '"$TPL_DIR/scripts/apply-e2e-verdict.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER" "$RUN_KEY"'
 
       - name: Stop the application (e2e-down hook)
         if: always()

@@ -34,6 +34,7 @@ case "$1 ${2:-}" in
     esac ;;
   "pr view")     cat "${GH_STUB_PR_VIEW:?}" ;;
   "pr edit")     : ;;
+  "pr comment")  : ;;
   "repo view")   echo "octo/app" ;;
   "label list")  printf '%s' "${GH_STUB_LABELS:-}" ;;
   "label create") [ -z "${GH_STUB_LABEL_CREATE_FAILS:-}" ] || exit 1 ;;

@@ -123,7 +123,7 @@ Then:
 | Plan | you, `/plan-issue N` locally | Claude Code + you | comment `<!-- patufet:plan -->` + label `ready-to-implement` |
 | Implement | label `ready-to-implement` | `implement.yml` | branch `agent/issue-N`, tests green, PR with `Closes #N` — or draft PR + `to-refine` when it has a question |
 | Review | PR opened / pushed / ready | `review.yml` | waits for the CI of the commit, then inline comments and one report comment; the workflow sets the label `pass` / `warning` / `fail` from Claude's verdict; a red CI is always `fail` |
-| Fix | verdict `warning` / `fail`, in the review's own run (`needs:`); or you add that label | `fix-review.yml` | fixes pushed to the PR branch → review again (max `max-review-cycles`, then `needs-human-review`) |
+| Fix | verdict `warning` / `fail`, in the review's own run (`needs:`); or you add that label | `fix-review.yml` | fixes pushed to the PR branch → review again (max `max-review-cycles`, then `needs-human-review`; also when it pushes nothing) |
 | E2E | verdict `pass`, in the review's own run; or you add `pass` | `e2e.yml` (optional) | app started by your `e2e-up.sh`, tested live with Playwright; `fail` runs `fix-e2e` in the same run, success mentions the reviewer |
 | Merge | you | — | — |
 

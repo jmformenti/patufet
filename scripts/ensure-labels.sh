@@ -3,6 +3,8 @@
 # they may carry a colour or description the repository chose. Exits non-zero
 # when a label is still missing afterwards: the agent could not apply it.
 #
+# Label names are compared like GitHub does, without case: `Blocked` is `blocked`.
+#
 # Usage: ensure-labels.sh <name>=<hex-color> ...
 set -euo pipefail
 
@@ -11,10 +13,10 @@ existing=$(list)
 missing=0
 for spec in "$@"; do
   name="${spec%=*}" color="${spec##*=}"
-  grep -qxF "$name" <<< "$existing" && continue
+  grep -qixF "$name" <<< "$existing" && continue
   if gh label create "$name" --color "$color"; then
     echo "Created label '$name'"
-  elif list | grep -qxF "$name"; then
+  elif list | grep -qixF "$name"; then
     echo "Label '$name' was created concurrently"
   else
     echo "::error::Could not create label '$name'"

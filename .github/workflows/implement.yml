@@ -117,6 +117,16 @@ jobs:
           TEMPLATE_REPO: ${{ job.workflow_repository }}
           TEMPLATE_SHA: ${{ job.workflow_sha }}
 
+      # The steps below and the agent set these labels; a repository that renamed
+      # them, or never ran the bootstrap, may lack one. Existing labels are left as they are.
+      - name: Ensure the issue labels exist
+        env:
+          LABEL_READY: ${{ inputs.label-ready }}
+          LABEL_IN_PROGRESS: ${{ inputs.label-in-progress }}
+          LABEL_TO_REFINE: ${{ inputs.label-to-refine }}
+          LABEL_BLOCKED: ${{ inputs.label-blocked }}
+        run: '"$TPL_DIR/scripts/ensure-labels.sh" "$LABEL_READY=0E8A16" "$LABEL_IN_PROGRESS=FBCA04" "$LABEL_TO_REFINE=D93F0B" "$LABEL_BLOCKED=5319E7"'
+
       # Only a plan written by a collaborator is trusted (see docs/security.md)
       - name: Extract the approved plan
         id: plan

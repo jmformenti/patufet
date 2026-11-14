@@ -17,6 +17,8 @@ the flow ends at the code review `pass` and the reviewer merges.
 - Runs with `bash`, from the repository root, with the PR head commit that got the `pass`
   verdict checked out (not a later push).
 - Must **start** the app, **wait** until it is usable and **seed** the test data.
+- Gets no GitHub token: `GH_TOKEN` / `GITHUB_TOKEN` are not in its environment, nor in the
+  down hook's. It runs code of the PR.
 - Must **exit non-zero** if the app is not usable — the job fails without posting a verdict.
 - Must **append `KEY=VALUE` lines** to the file `$PATUFET_E2E_ENV`. They are rendered
   into the prompt as a bullet list, so the tester knows the URL and the test credentials.

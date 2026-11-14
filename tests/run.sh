@@ -116,6 +116,9 @@ echo "# ensure-labels.sh"
 : > "$GH_STUB_LOG"
 GH_STUB_LABELS=$'pass\nbug' "$s/ensure-labels.sh" pass=0E8A16 fail=B60205 >/dev/null
 eq "only missing labels created, never --force" $'gh label list --limit 1000 --json name --jq .[].name\ngh label create fail --color B60205' "$(cat "$GH_STUB_LOG")"
+: > "$GH_STUB_LOG"
+GH_STUB_LABELS=$'Pass\nFAIL' "$s/ensure-labels.sh" pass=0E8A16 fail=B60205 >/dev/null
+lacks "a label that differs only in case exists already" "label create" "$(cat "$GH_STUB_LOG")"
 if GH_STUB_LABELS=pass GH_STUB_LABEL_CREATE_FAILS=1 "$s/ensure-labels.sh" pass=0E8A16 fail=B60205 >/dev/null; then fail "a label still missing → exit 1"; else pass "a label still missing → exit 1"; fi
 
 echo "# render-prompt.sh"
@@ -241,9 +244,100 @@ out=$(e2e_comment fedcba9876 '[{"name":"pass"}]' ana)
 has "PR moved on: says so" "moved on to fedcba9" "$out"
 lacks "PR moved on: nobody mentioned" "@ana" "$out"
 wf_e2e=$(cat "$root/.github/workflows/e2e.yml")
-has "e2e.yml uses the comment script" 'scripts/e2e-pass-comment.sh" "$PR_NUMBER" "$TESTED_SHA" "$LABEL_PASS" "$REVIEWER"' "$wf_e2e"
 lacks "e2e.yml has no other ready-for-merge path" "Ready for human review" "$wf_e2e"
-has "a forced fail mentions the reviewer" 'to let fix-review try.$mention"' "$(cat "$root/.github/workflows/review.yml")"
+
+# The scripts that set the state after a stage. Each case runs against a PR whose
+# head is <head sha>; the gh calls land in $GH_STUB_LOG and the outputs in $work/out.
+pr_at() { jq -n --arg head "$1" --argjson labels "${2:-[]}" '{headRefOid: $head, labels: $labels}' > "$work/pr.json"; }
+calls() { grep -E "^gh (pr|label) (edit|comment|create)" "$GH_STUB_LOG" || true; }
+outputs() { tr '\n' ' ' < "$work/out"; }
+
+echo "# apply-review-verdict.sh"
+arv() {  # arv <head sha> <structured> <ci state> [execution file]; prints "rc=<code>"
+  pr_at "$1"; : > "$GH_STUB_LOG"; : > "$work/out"
+  GITHUB_OUTPUT="$work/out" GH_STUB_PR_VIEW="$work/pr.json" GH_STUB_ISSUE_COMMENTS="$fx/review-comments.json" \
+    STRUCTURED="$2" CI_STATE="$3" CLAUDE_EXECUTION_FILE="${4-$fx/execution.json}" HEAD_SHA=abcdef1234 \
+    LABEL_PASS=P LABEL_WARNING=W LABEL_FAIL=F LABEL_NHR=NHR REVIEWER=ana RUN_URL=https://run \
+    "$s/apply-review-verdict.sh" octo/app 7 9 > "$work/log" 2>&1
+  echo "rc=$?"
+}
+eq "pass: succeeds" "rc=0" "$(arv abcdef1234 '{"verdict":"pass","summary":"x"}' success)"
+eq "pass: labelled, needs-human-review removed" "gh pr edit 7 --add-label P --remove-label W --remove-label F --remove-label NHR" "$(calls)"
+eq "pass: e2e follows" "verdict=pass next-stage=e2e needs-human=false reason=ok " "$(outputs)"
+arv abcdef1234 '{"verdict":"warning","summary":"x"}' success > /dev/null
+eq "warning: labelled, nobody told" "gh pr edit 7 --add-label W --remove-label P --remove-label F" "$(calls)"
+eq "warning: fix-review follows" "verdict=warning next-stage=fix-review needs-human=false reason=ok " "$(outputs)"
+arv abcdef1234 '{"verdict":"fail","summary":"x","needs_human":true}' failure > /dev/null
+eq "CI failure unrelated to the diff: fail and needs-human-review" "gh pr edit 7 --add-label F --remove-label P --remove-label W --add-label NHR" "$(calls)"
+eq "CI failure unrelated to the diff: no fix" "verdict=fail next-stage= needs-human=true reason=human " "$(outputs)"
+eq "pass on a red CI: succeeds" "rc=0" "$(arv abcdef1234 '{"verdict":"pass","summary":"x"}' failure)"
+eq "pass on a red CI: forced to fail, a person decides" "gh pr edit 7 --add-label F --remove-label P --remove-label W --add-label NHR" "$(calls | head -1)"
+has "pass on a red CI: a comment says so" 'gh pr comment 7 --body ⚠️ patufet: the reviewer returned `pass` although CI failed, so the workflow set `F`.' "$(calls)"
+has "pass on a red CI: the reviewer is mentioned" 'to let fix-review try. @ana' "$(cat "$GH_STUB_LOG")"
+eq "pass on a red CI: nothing follows" "verdict=fail next-stage= needs-human=true reason=forced-fail " "$(outputs)"
+eq "PR moved on: succeeds" "rc=0" "$(arv fedcba9876 '{"verdict":"fail","summary":"x"}' failure)"
+eq "PR moved on: no label, no comment" "" "$(calls)"
+eq "PR moved on: nothing follows" "verdict= next-stage= needs-human=false reason=moved " "$(outputs)"
+eq "no verdict: the job fails" "rc=1" "$(arv abcdef1234 '' success)"
+eq "no verdict: needs-human-review and a comment" $'gh pr edit 7 --add-label NHR\ngh pr comment 7 --body ⚠️ patufet: review cycle 9 produced no verdict. Manual review needed. See https://run' "$(calls)"
+eq "no verdict: nothing follows" "verdict= next-stage= needs-human=true reason=no-verdict " "$(outputs)"
+eq "the action did not run: the job fails" "rc=1" "$(arv abcdef1234 '{"verdict":"pass","summary":"x"}' success "")"
+eq "the action did not run: no label, no comment, no output" "" "$(calls)$(outputs)"
+has "the action did not run: says so" "::error::The Claude action did not finish" "$(cat "$work/log")"
+
+echo "# apply-e2e-verdict.sh"
+aev() {  # aev <head sha> <labels json> <structured> <claude outcome> [execution file]; prints "rc=<code>"
+  pr_at "$1" "$2"; : > "$GH_STUB_LOG"; : > "$work/out"
+  GITHUB_OUTPUT="$work/out" GH_STUB_PR_VIEW="$work/pr.json" GH_STUB_ISSUE_COMMENTS="$fx/review-comments.json" \
+    STRUCTURED="$3" CLAUDE_OUTCOME="$4" CLAUDE_EXECUTION_FILE="${5-$fx/execution.json}" TESTED_SHA=abcdef1234 \
+    LABEL_PASS=pass LABEL_WARNING=W LABEL_FAIL=F REVIEWER=ana RUN_URL=https://run \
+    "$s/apply-e2e-verdict.sh" octo/app 7 "${RUN_KEY:-99.1}" > "$work/log" 2>&1
+  echo "rc=$?"
+}
+eq "pass: succeeds" "rc=0" "$(aev abcdef1234 '[{"name":"pass"}]' '{"verdict":"pass","summary":"x"}' success)"
+eq "pass: ready for merge, no label touched" "gh pr comment 7 --body ✅ patufet: code review and live e2e test passed. Ready for human review and merge. @ana" "$(calls)"
+eq "pass: nothing follows" "verdict=pass " "$(outputs)"
+aev fedcba9876 '[{"name":"pass"}]' '{"verdict":"pass","summary":"x"}' success > /dev/null
+has "pass, PR moved on: not ready" "moved on to fedcba9" "$(calls)"
+eq "fail: succeeds" "rc=0" "$(aev abcdef1234 '[{"name":"pass"}]' '{"verdict":"fail","summary":"x"}' success)"
+eq "fail: labelled, no comment" "gh pr edit 7 --add-label F --remove-label pass --remove-label W" "$(calls)"
+eq "fail: fix-review follows" "verdict=fail next-stage=fix-review " "$(outputs)"
+eq "fail, PR moved on: succeeds" "rc=0" "$(aev fedcba9876 '[]' '{"verdict":"fail","summary":"x"}' success)"
+eq "fail, PR moved on: no label" "" "$(calls)"
+eq "fail, PR moved on: nothing follows" "verdict=fail " "$(outputs)"
+RUN_KEY=55.1 aev abcdef1234 '[]' '' success > /dev/null
+eq "no structured output: the report of this run counts" "verdict=fail next-stage=fix-review " "$(outputs)"
+eq "no verdict: the job fails" "rc=1" "$(aev abcdef1234 '[]' '' success)"
+eq "no verdict: a comment, no label" "gh pr comment 7 --body ⚠️ patufet: the live e2e run produced no verdict (outcome: success). Manual check needed. See https://run" "$(calls)"
+eq "a failed Claude step: the job fails whatever it returned" "rc=1" "$(aev abcdef1234 '[]' '{"verdict":"pass","summary":"x"}' failure)"
+lacks "a failed Claude step: not ready for merge" "Ready for" "$(calls)"
+eq "the action did not run: the job fails" "rc=1" "$(aev abcdef1234 '[]' '{"verdict":"pass","summary":"x"}' success "")"
+eq "the action did not run: no comment, no output" "" "$(calls)$(outputs)"
+
+echo "# fix-gate.sh"
+gate() {  # gate <before|after> <head sha> <count>; prints "rc=<code>"
+  pr_at "$2"; : > "$GH_STUB_LOG"; : > "$work/out"
+  GITHUB_OUTPUT="$work/out" GH_STUB_PR_VIEW="$work/pr.json" GH_STUB_LABELS="NHR" \
+    STARTED_SHA=abcdef1234 COUNT="${3:-0}" MAX_CYCLES=10 LABEL_NHR=NHR REVIEWER=ana RUN_URL=https://run \
+    "$s/fix-gate.sh" "$1" 7 > "$work/log" 2>&1
+  echo "rc=$?"
+}
+eq "before: under the limit → fix" "rc=0 state=fix " "$(gate before abcdef1234 3) $(outputs)"
+eq "before: under the limit → nothing labelled" "" "$(calls)"
+eq "before: PR moved on → nothing to fix" "rc=0 state=moved " "$(gate before fedcba9876 3) $(outputs)"
+eq "before: PR moved on wins over the limit" "rc=0 state=moved " "$(gate before fedcba9876 10) $(outputs)"
+eq "before: PR moved on → nothing labelled" "" "$(calls)"
+eq "before: at the limit → a person" "rc=0 state=limit " "$(gate before abcdef1234 10) $(outputs)"
+eq "before: at the limit → needs-human-review and a mention" $'gh pr edit 7 --add-label NHR\ngh pr comment 7 --body ⚠️ patufet: 10 automatic review cycles reached without a `pass` verdict. Manual review needed. @ana' "$(calls)"
+eq "after: the agent pushed → nothing to do" "rc=0" "$(gate after fedcba9876)"
+eq "after: the agent pushed → nothing labelled" "" "$(calls)"
+eq "after: nothing pushed → still a success" "rc=0" "$(gate after abcdef1234)"
+eq "after: nothing pushed → needs-human-review and a mention" $'gh pr edit 7 --add-label NHR\ngh pr comment 7 --body ⚠️ patufet: fix-review ended without pushing a change, so no new review starts. Its comments on this PR, if any, say why. Manual review needed. See https://run @ana' "$(calls)"
+pr_at abcdef1234; : > "$GH_STUB_LOG"
+GH_STUB_PR_VIEW="$work/pr.json" GH_STUB_LABELS="" STARTED_SHA=abcdef1234 LABEL_NHR=NHR "$s/fix-gate.sh" after 7 > /dev/null 2>&1
+has "after: a missing needs-human-review label is created first" "gh label create NHR --color 5319E7" "$(cat "$GH_STUB_LOG")"
+lacks "after: no reviewer, no mention" "@" "$(calls)"
+if STARTED_SHA=x LABEL_NHR=NHR GH_STUB_PR_VIEW="$work/pr.json" "$s/fix-gate.sh" maybe 7 > /dev/null 2>&1; then fail "unknown mode → error"; else pass "unknown mode → error"; fi
 
 echo "# detect-pr-ci.sh"
 ci="$work/ci-repo"
@@ -345,12 +439,30 @@ for stage in review e2e; do
   lacks "$stage: the agent cannot label" 'Bash(gh pr edit' "$(cat "$root/.github/workflows/$stage.yml")"
   has "$stage: returns the next stage to the caller" 'value: ${{ jobs.'"$stage"'.outputs.next-stage }}' "$(cat "$root/.github/workflows/$stage.yml")"
 done
-has "review.yml routes with the script" 'scripts/route-review.sh" "$verdict" "$CI_STATE" "$needs_human" "$moved"' "$(cat "$wf_review")"
+has "review.yml applies the verdict with the script" 'scripts/apply-review-verdict.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER" "$CYCLE"' "$(cat "$wf_review")"
+has "the verdict script routes with route-review.sh" 'route-review.sh" "$verdict" "${CI_STATE:-}" "$needs_human" "$moved"' "$(cat "$s/apply-review-verdict.sh")"
+has "e2e.yml applies the verdict with the script" 'scripts/apply-e2e-verdict.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER" "$RUN_KEY"' "$wf_e2e"
 has "the reviewer can ask for a human in the structured result" '"needs_human":{"type":"boolean"}' "$(cat "$wf_review")"
 has "the prompt explains needs_human" '"needs_human": true' "$(cat "$root/prompts/review.md")"
 has "a re-run of e2e restores pass" 'name: Restore the pass label on a re-run' "$wf_e2e"
-has "fix-review does nothing once the PR has moved on" 'echo "state=moved"' "$(cat "$root/.github/workflows/fix-review.yml")"
-lacks "no stage asks a person to relabel to continue" 'by hand to continue' "$(cat "$root"/.github/workflows/*.yml)"
+wf_fix=$(cat "$root/.github/workflows/fix-review.yml")
+has "fix-review decides with the gate" 'scripts/fix-gate.sh" before "$PR_NUMBER"' "$wf_fix"
+has "fix-review checks that the agent pushed" 'scripts/fix-gate.sh" after "$PR_NUMBER"' "$wf_fix"
+has "the hand-over also runs when a step before the agent failed" "if: \${{ !cancelled() && steps.gate.outputs.state == 'fix' }}" "$(awk '/name: Hand over to a human if nothing was pushed/{f=1} f&&/if:/{print;exit}' "$root/.github/workflows/fix-review.yml")"
+has "the agent only runs when the gate says fix" "if: steps.gate.outputs.state == 'fix'" "$(awk '/id: claude/{f=1} f&&/if:/{print;exit}' "$root/.github/workflows/fix-review.yml")"
+lacks "no stage asks a person to relabel to continue" 'by hand to continue' "$(cat "$root"/.github/workflows/*.yml "$s"/*.sh)"
+
+echo "# the workflows themselves"
+fetch_step() { awk '/- name: Fetch patufet template/{f=1} f&&/^        env:/{exit} f' "$root/.github/workflows/$1.yml"; }
+for stage in review fix-review e2e; do
+  eq "$stage: fetches the template like implement.yml" "$(fetch_step implement)" "$(fetch_step "$stage")"
+done
+has "the fetch step was found" 'tarball/$TEMPLATE_SHA' "$(fetch_step implement)"
+lacks "e2e: the job's token does not reach the hooks of the PR" 'GH_TOKEN' "$(awk '/^    env:/{f=1;next} /^    steps:/{f=0} f' "$root/.github/workflows/e2e.yml")"
+for step in 'Start the application (e2e-up hook)' 'Stop the application (e2e-down hook)'; do
+  lacks "e2e: no token in '$step'" 'GH_TOKEN' "$(awk -v n="      - name: $step" '$0 == n {f=1; next} /^      - name:/{f=0} f' "$root/.github/workflows/e2e.yml")"
+done
+has "implement: the issue labels are ensured before the first one is set" 'scripts/ensure-labels.sh" "$LABEL_READY=' "$(sed '/name: Extract the approved plan/q' "$root/.github/workflows/implement.yml")"
 caller_job() { awk -v j="  $1:" '$0 == j {f=1; next} /^  [a-z0-9-]+:$/ {f=0} f' "$root/templates/.github/workflows/patufet.yml"; }
 for job in fix-review e2e; do
   has "caller: $job needs the review" 'needs: review' "$(caller_job "$job")"
