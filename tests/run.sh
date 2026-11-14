@@ -116,6 +116,9 @@ echo "# ensure-labels.sh"
 : > "$GH_STUB_LOG"
 GH_STUB_LABELS=$'pass\nbug' "$s/ensure-labels.sh" pass=0E8A16 fail=B60205 >/dev/null
 eq "only missing labels created, never --force" $'gh label list --limit 1000 --json name --jq .[].name\ngh label create fail --color B60205' "$(cat "$GH_STUB_LOG")"
+: > "$GH_STUB_LOG"
+GH_STUB_LABELS=$'Pass\nFAIL' "$s/ensure-labels.sh" pass=0E8A16 fail=B60205 >/dev/null
+lacks "a label that differs only in case exists already" "label create" "$(cat "$GH_STUB_LOG")"
 if GH_STUB_LABELS=pass GH_STUB_LABEL_CREATE_FAILS=1 "$s/ensure-labels.sh" pass=0E8A16 fail=B60205 >/dev/null; then fail "a label still missing → exit 1"; else pass "a label still missing → exit 1"; fi
 
 echo "# render-prompt.sh"
@@ -445,6 +448,7 @@ has "a re-run of e2e restores pass" 'name: Restore the pass label on a re-run' "
 wf_fix=$(cat "$root/.github/workflows/fix-review.yml")
 has "fix-review decides with the gate" 'scripts/fix-gate.sh" before "$PR_NUMBER"' "$wf_fix"
 has "fix-review checks that the agent pushed" 'scripts/fix-gate.sh" after "$PR_NUMBER"' "$wf_fix"
+has "the hand-over also runs when a step before the agent failed" "if: \${{ !cancelled() && steps.gate.outputs.state == 'fix' }}" "$(awk '/name: Hand over to a human if nothing was pushed/{f=1} f&&/if:/{print;exit}' "$root/.github/workflows/fix-review.yml")"
 has "the agent only runs when the gate says fix" "if: steps.gate.outputs.state == 'fix'" "$(awk '/id: claude/{f=1} f&&/if:/{print;exit}' "$root/.github/workflows/fix-review.yml")"
 lacks "no stage asks a person to relabel to continue" 'by hand to continue' "$(cat "$root"/.github/workflows/*.yml "$s"/*.sh)"
 

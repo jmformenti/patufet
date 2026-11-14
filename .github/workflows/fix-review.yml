@@ -184,9 +184,10 @@ jobs:
           prompt: ${{ steps.prompt.outputs.text }}
 
       # A fix that pushed nothing starts no new review: the PR would stay at its
-      # verdict with nobody told. Also after a failed run; not on cancellation.
+      # verdict with nobody told. Also when the agent failed, or a step before it
+      # did and it never ran; not on cancellation.
       - name: Hand over to a human if nothing was pushed
-        if: ${{ !cancelled() && steps.claude.conclusion != 'skipped' }}
+        if: ${{ !cancelled() && steps.gate.outputs.state == 'fix' }}
         env:
           STARTED_SHA: ${{ github.event.pull_request.head.sha }}
           LABEL_NHR: ${{ inputs.label-needs-human-review }}
