@@ -72,8 +72,9 @@ the model not to launch subagents.
 **`needs-human-review` with "review cycle N produced no verdict".**
 Neither structured output nor a marker comment of that cycle was found: the model did not
 follow the output contract (often a `max-turns` exhaustion; the job summary shows the turns).
-Reports of earlier cycles are deliberately ignored. Check the log; re-run by pushing an empty
-commit or re-labelling.
+Reports of earlier cycles are deliberately ignored. Check the log, then re-run the `review` job
+of that run, or push again. Adding a verdict label does not repeat the review: it starts
+`fix-review` or `e2e`.
 
 **The review waits until `ci-wait-timeout-minutes` on every PR.**
 Some workflow that runs on pull requests takes longer than that, or never finishes: a preview

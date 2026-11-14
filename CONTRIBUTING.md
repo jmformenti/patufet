@@ -19,7 +19,8 @@
    `{{placeholder}}` of a prompt is set by its workflow, that no prompt hard-codes a label
    and that every workflow input appears in the docs.
 2. `actionlint` and `shellcheck scripts/*.sh templates/.github/patufet/*.sh tests/*.sh tests/stubs/gh`
-   if installed; `self-check.yml` runs them on every PR with pinned versions.
+   if installed; `self-check.yml` runs them on every PR (a pinned `actionlint`, the runner's
+   `shellcheck`).
 3. A change to a workflow, a prompt or the flow is only proven by a real cycle. Use a
    sandbox repository whose caller points at your branch (`uses: …/implement.yml@<branch>`),
    open a trivial issue, run `/plan-issue`, and watch implement → review → fix → e2e. The

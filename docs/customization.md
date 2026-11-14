@@ -2,7 +2,7 @@
 
 Three layers, from cheapest to deepest:
 
-1. **Inputs** of the caller workflow (`with:`) — language, commands, limits, labels, model.
+1. **Inputs** of the caller workflow (`with:`) — language, limits, labels, model.
 2. **Prompt extension files** in the consumer repository — project knowledge appended to the
    base prompts.
 3. **Forking** this repository — only if you need to change the base prompts or the flow.
@@ -154,10 +154,9 @@ result, labels) — the deterministic steps depend on it.
 If you fork and edit `prompts/*.md`: `{{issue}}`, `{{pr}}`, `{{repository}}`, `{{branch}}`,
 `{{language}}`, `{{plan}}`, `{{plan_section}}`, `{{ci_section}}`,
 `{{cycle}}`, `{{run}}`, `{{review_report}}`, `{{inline_comments}}`, `{{e2e_env}}`,
-`{{label_in_progress}}`, `{{label_to_refine}}`, `{{label_pass}}`, `{{label_warning}}`,
-`{{label_fail}}`, `{{label_needs_human_review}}`, `{{human_reviewer}}`. Each workflow sets the ones its prompt
-uses (`tests/run.sh` checks it). Unknown placeholders render empty and are reported in the
-job log.
+`{{label_in_progress}}`, `{{label_to_refine}}`, `{{human_reviewer}}`. Each workflow sets the
+ones its prompt uses (`tests/run.sh` checks it). Unknown placeholders render empty and are
+reported in the job log. The verdict labels have no placeholder: the agents do not label.
 
 ## `/plan-issue`
 
@@ -165,9 +164,6 @@ job log.
 consumer repository by `bootstrap.sh`. It drafts the plan with you, and only on your explicit
 confirmation posts it (with the `<!-- patufet:plan -->` marker) and adds the ready label
 (`ready-to-implement`, or the `label-ready` of the caller).
-
-Future option: distribute the command as a Claude Code plugin from this repository instead
-of a copied file.
 
 ## Versioning
 
