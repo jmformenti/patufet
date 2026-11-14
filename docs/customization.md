@@ -80,8 +80,17 @@ same defaults (`tests/run.sh` checks it). The rule for the names:
 | `e2e-up-script`, `e2e-down-script`, `e2e-extra-instructions-file`, `e2e-max-turns`, `e2e-allowed-tools`, `e2e-timeout-minutes` | `e2e`, without the prefix |
 
 `model` is one value for the three stages. To give each stage its own, call `review.yml`,
-`fix-review.yml` and `e2e.yml` as separate jobs, as the callers older than v1.7.0 do: copy the
-four jobs and their `needs:` / `if:` from `pull-request.yml`.
+`fix-review.yml` and `e2e.yml` as separate jobs of the caller, as the callers older than v1.7.0
+do. Take the four jobs of `pull-request.yml` with their `needs:`, `if:` and `permissions:`, and
+change three things, since they are written to run inside patufet:
+
+- `uses: ./.github/workflows/review.yml` becomes
+  `uses: jmformenti/patufet/.github/workflows/review.yml@v1` (a `./` path in your caller would
+  point at your own repository);
+- every `${{ inputs.x }}` under `with:` becomes your value, or goes away to keep the default;
+- in the `if:` conditions, `inputs.label-warning`, `inputs.label-fail` and `inputs.label-pass`
+  become the literal names (`'warning'`, `'fail'`, `'pass'`), and `inputs.e2e &&` goes away:
+  without e2e, leave the `e2e` and `fix-e2e` jobs out.
 
 The caller's job must grant `contents: write`, `pull-requests: write`, `issues: read`,
 `id-token: write` and `actions: read`. A job of a reusable workflow cannot get more than its
