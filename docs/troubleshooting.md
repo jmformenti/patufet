@@ -81,6 +81,13 @@ Reports of earlier cycles are deliberately ignored. Check the log, then re-run t
 of that run, or push again. Adding a verdict label does not repeat the review: it starts
 `fix-review` or `e2e`.
 
+**A comment says "review cycle N read X of Y parts of the diff".**
+The reviewer did not open every part of the diff (see
+[How the review reads the diff](customization.md#how-the-review-reads-the-diff)), so its verdict
+says nothing about the files listed. Usual causes: it ran out of `max-turns` or `timeout-minutes`
+on a very large PR (the job summary shows the turns), or the caller's `allowed-tools` lacks `Read`.
+Review those files by hand, or push again for a new review.
+
 **The review waits until `ci-wait-timeout-minutes` on every PR.**
 Some workflow that runs on pull requests takes longer than that, or never finishes: a preview
 deployment, a job waiting for an approval or a runner. The review waits for every workflow of the

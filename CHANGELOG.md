@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Fix: the review of a large PR often read only the first 2 KB of the diff. Above about 30 KB,
+  Claude Code saves the output of `gh pr diff` to a file and shows a preview, and the reviewer
+  did not always open the file. The workflow now cuts the diff into parts the reviewer reads
+  whole (`scripts/diff-section.sh`) and counts the parts it opened (`scripts/diff-coverage.sh`):
+  the job summary shows `Diff read: X of Y parts`, and a comment on the PR names the files left
+  unread. A part cut inside a hunk carries the line where it starts, for the inline
+  comments. The verdict does not change. A caller whose `review-allowed-tools` lacks `Read` gets
+  that comment on every review.
+
 ## v1.7.1 — 2026-11-15
 
 - Fix: `fix-review` could not run the tests of the PRs `implement` opens. Since 2026-11-12,

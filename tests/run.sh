@@ -355,6 +355,75 @@ eq "read keeps it" true "$(GH_STUB_PERMISSION="read" upr ana)"
 eq "not a collaborator (404) keeps it" true "$(upr stranger)"
 has "asks the permission of the author" "gh api repos/octo/app/collaborators/stranger/permission" "$(cat "$GH_STUB_LOG")"
 
+echo "# split-diff.sh"
+d="$work/diff"
+PATUFET_DIFF_PART_LINES=10 "$s/split-diff.sh" "$fx/pr.diff" "$d"
+eq "the parts, in order, are the diff byte for byte" "" "$(cat "$d"/parts/* | cmp - "$fx/pr.diff" 2>&1)"
+eq "one or more parts per file, cut between hunks or lines" \
+  "001-src_app.js.1.diff 001-src_app.js.2.diff 002-package-lock.json.diff 003-img_logo.png.diff 004-docs_caf_notes.md.1.diff 004-docs_caf_notes.md.2.diff 005-old.txt.diff 006-x_.._.._etc_evil.diff" \
+  "$(cd "$d/parts" && echo *)"
+eq "no part over the line limit" "" "$(jq -r '.[] | select(.lines > 10) | .file' "$d/index.json")"
+eq "every part stays in the parts directory" "" "$(jq -r --arg dir "$d/parts/" '.[] | select(.path | startswith($dir) | not) | .path' "$d/index.json")"
+eq "file names: renamed by git quoting, deleted, odd" $'src/app.js\npackage-lock.json\nimg/logo.png\ndocs/café notes.md\nold.txt\nx/../../etc/evil' \
+  "$(jq -r 'reduce .[].file as $f ([]; if any(.[]; . == $f) then . else . + [$f] end) | .[]' "$d/index.json")"
+eq "lockfiles and binaries are skipped, the rest is not" "package-lock.json img/logo.png" "$(jq -r '[.[] | select(.skip) | .file] | join(" ")' "$d/index.json")"
+eq "added / removed per part, headers not counted" "+2-1 +1-1 +4-0 +8-0 +0-1" \
+  "$(jq -r '[.[] | select(.file == "src/app.js" or .file == "docs/café notes.md" or .file == "old.txt") | "+\(.added)-\(.removed)"] | join(" ")' "$d/index.json")"
+eq "the header goes with the first hunk" "@@ -0,0 +1,12 @@" "$(sed -n 6p "$d/parts/004-docs_caf_notes.md.1.diff")"
+eq "a part cut inside a hunk says where it starts; a new file has no old line" '{"old":null,"new":5}' "$(jq -c '.[] | select(.file == "docs/café notes.md" and .part == 2) | .continues' "$d/index.json")"
+eq "a part that starts at a hunk or a file needs no position" "" "$(jq -r '.[] | select(.continues != null and .file != "docs/café notes.md") | .file' "$d/index.json")"
+printf '%s\n' 'diff --git a/m.txt b/m.txt' '--- a/m.txt' '+++ b/m.txt' '@@ -10,4 +20,5 @@' ' a' '-b' '+c' '+d' ' e' '-f' '+g' > "$work/mid.diff"
+PATUFET_DIFF_PART_LINES=4 "$s/split-diff.sh" "$work/mid.diff" "$work/mid"
+eq "positions count context, removed and added lines" '[null,{"old":10,"new":20},{"old":12,"new":23}]' "$(jq -c '[.[].continues]' "$work/mid/index.json")"
+printf '%s\n' 'diff --git a/gone.txt b/gone.txt' 'deleted file mode 100644' '--- a/gone.txt' '+++ /dev/null' '@@ -1,5 +0,0 @@' '-1' '-2' '-3' '-4' '-5' > "$work/del.diff"
+PATUFET_DIFF_PART_LINES=4 "$s/split-diff.sh" "$work/del.diff" "$work/del"
+eq "a deleted file has no new line" '[null,null,{"old":4,"new":null}]' "$(jq -c '[.[].continues]' "$work/del/index.json")"
+"$s/split-diff.sh" /dev/null "$work/diff-empty"
+eq "an empty diff has no parts" "[]" "$(jq -c . "$work/diff-empty/index.json")"
+
+echo "# diff-section.sh"
+sec=$(GH_STUB_PR_DIFF="$fx/pr.diff" PATUFET_DIFF_PART_LINES=10 "$s/diff-section.sh" octo/app 7 "$work/sec")
+has "the section counts files and parts" "in 6 files, cut into 8 parts" "$sec"
+has "the section asks to read every part" "Read every part in the table below, in order" "$sec"
+has "a part to read is listed with its path" "| \`$work/sec/parts/001-src_app.js.1.diff\` | src/app.js (1/2) | +2 −1 |" "$sec"
+has "a part cut inside a hunk shows its position" "| docs/café notes.md (2/2), continues a hunk at new line 5 | +8 −0 |" "$sec"
+has "skipped parts are listed apart" "- \`$work/sec/parts/002-package-lock.json.diff\`: package-lock.json" "$sec"
+lacks "a skipped part is not in the table" "| \`$work/sec/parts/003-img_logo.png.diff\`" "$sec"
+has "the diff is fetched for the PR" "gh pr diff 7 -R octo/app" "$(cat "$GH_STUB_LOG")"
+printf '%s\n' 'diff --git a/a.txt b/a.txt' '--- a/a.txt' '+++ b/a.txt' '@@ -1 +1 @@' '-x' '+y' > "$work/one.diff"
+has "one file, one part: singular" "in 1 file, cut into 1 part." "$(GH_STUB_PR_DIFF="$work/one.diff" "$s/diff-section.sh" octo/app 7 "$work/sec-one")"
+sec=$(GH_STUB_PR_DIFF=/dev/null "$s/diff-section.sh" octo/app 7 "$work/sec-empty")
+eq "an empty diff says so" "The diff of this PR is empty." "$sec"
+sec=$(env -u GH_STUB_PR_DIFF "$s/diff-section.sh" octo/app 7 "$work/sec-fail" 2>/dev/null); rc=$?
+eq "no diff: still a success" 0 "$rc"
+has "no diff: falls back to gh pr diff" 'Read the diff with `gh pr diff 7`' "$sec"
+eq "no diff: an empty index, so no coverage" "[]" "$(cat "$work/sec-fail/index.json")"
+
+echo "# diff-coverage.sh"
+idx="$work/sec/index.json"
+part() { jq -r --argjson n "$1" '.[$n].path' "$idx"; }
+execution() {  # execution <path>...: a Claude run that read those paths
+  jq -n '[{type: "system"}, {type: "assistant", message: {content: ($ARGS.positional | map({type: "tool_use", name: "Read", input: {file_path: ., offset: 1}}))}},
+          {type: "assistant", message: {content: [{type: "tool_use", name: "Bash", input: {command: "gh pr diff 7"}}]}}, {type: "result"}]' --args "$@" > "$work/exec.json"
+}
+cov() { : > "$GH_STUB_LOG"; "$s/diff-coverage.sh" "$idx" "$work/exec.json" "$@" | tr '\n' ' '; }
+mapfile -t readable < <(jq -r '.[] | select(.skip | not) | .path' "$idx")
+execution "${readable[@]}" "$(part 1)" /etc/passwd
+eq "every part read; repeats and other paths ignored" "read=6 total=6 " "$(cov 7 3)"
+eq "every part read: no comment" "" "$(cat "$GH_STUB_LOG")"
+execution "$(part 0)" "$(part 2)" "$(part 3)"
+eq "skipped parts do not count" "read=1 total=6 " "$(cov)"
+eq "without a PR number, no comment" "" "$(cat "$GH_STUB_LOG")"
+execution "$(part 0)" "$(part 4)"
+eq "partial read" "read=2 total=6 " "$(cov 7 3)"
+has "partial read: a comment names the files not read" 'gh pr comment 7 --body ℹ️ patufet: review cycle 3 read 2 of 6 parts of the diff. Not read: `docs/café notes.md`, `old.txt`, `src/app.js`, `x/../../etc/evil`. The verdict does not take them into account: check those files by hand.' "$(cat "$GH_STUB_LOG")"
+execution
+eq "nothing read" "read=0 total=6 " "$(cov 7 3)"
+: > "$GH_STUB_LOG"
+eq "no execution file: nothing reported" "" "$("$s/diff-coverage.sh" "$idx" "$work/missing.json" 7 3)"
+eq "an empty index: nothing reported" "" "$("$s/diff-coverage.sh" "$work/sec-fail/index.json" "$work/exec.json" 7 3 | grep -v '^read=0$\|^total=0$')"
+eq "no execution file: no comment" "" "$(cat "$GH_STUB_LOG")"
+
 echo "# detect-pr-ci.sh"
 ci="$work/ci-repo"
 mkdir -p "$ci/.github/workflows"
@@ -475,6 +544,11 @@ has "fix-review decides the untrusted-PR restriction with the script" 'scripts/u
 has "fix-review passes it to the action, on by default" "restrict_untrusted_prs: \${{ steps.trust.outputs.restrict || 'true' }}" "$wf_fix"
 has "the author is the PR's, from the event" 'AUTHOR: ${{ github.event.pull_request.user.login }}' "$wf_fix"
 lacks "no other stage lifts the restriction" "restrict_untrusted_prs" "$(cat "$root"/.github/workflows/{review,e2e,mention,implement,pull-request}.yml)"
+has "review cuts the diff into parts for the prompt" 'scripts/diff-section.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER" "$RUNNER_TEMP/patufet-diff" > "$RUNNER_TEMP/diff_section.md"' "$(cat "$wf_review")"
+has "review renders the diff section" 'TPL_diff_section="$(cat "$RUNNER_TEMP/diff_section.md")"' "$(cat "$wf_review")"
+has "the reviewer may read the parts outside the checkout" '--add-dir ${{ runner.temp }}/patufet-diff' "$(cat "$wf_review")"
+has "review counts the parts read" 'scripts/diff-coverage.sh" "$RUNNER_TEMP/patufet-diff/index.json" "$EXECUTION_FILE" "$PR_NUMBER" "$CYCLE"' "$(cat "$wf_review")"
+has "the coverage is in the job summary" '"Diff read: ${DIFF_READ:-?} of ${DIFF_TOTAL:-?} parts"' "$(cat "$wf_review")"
 has "fix-review checks that the agent pushed" 'scripts/fix-gate.sh" after "$PR_NUMBER"' "$wf_fix"
 has "the hand-over also runs when a step before the agent failed" "if: \${{ !cancelled() && steps.gate.outputs.state == 'fix' }}" "$(awk '/name: Hand over to a human if nothing was pushed/{f=1} f&&/if:/{print;exit}' "$root/.github/workflows/fix-review.yml")"
 has "the agent only runs when the gate says fix" "if: steps.gate.outputs.state == 'fix'" "$(awk '/id: claude/{f=1} f&&/if:/{print;exit}' "$root/.github/workflows/fix-review.yml")"
