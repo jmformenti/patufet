@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.7.2 — 2026-11-15
+
 - Fix: the review of a large PR often read only the first 2 KB of the diff. Above about 30 KB,
   Claude Code saves the output of `gh pr diff` to a file and shows a preview, and the reviewer
   did not always open the file. The workflow now cuts the diff into parts the reviewer reads
