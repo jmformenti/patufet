@@ -37,6 +37,7 @@ case "$1 ${2:-}" in
       *) echo "gh stub: unexpected api path $2" >&2; exit 1 ;;
     esac ;;
   "pr view")     cat "${GH_STUB_PR_VIEW:?}" ;;
+  "pr diff")     cat "${GH_STUB_PR_DIFF:?}" ;;
   "pr edit")     : ;;
   "pr comment")  : ;;
   "repo view")   echo "octo/app" ;;

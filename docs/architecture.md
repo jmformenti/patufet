@@ -93,6 +93,10 @@ Rules that make it work (decision 11):
   is `pass` on a red CI, the workflow forces `fail` and asks a person, since that report asks
   for no change. A failure the reviewer finds unrelated to the diff (`needs_human` in its
   result) gets `fail` and `needs-human-review`, and no fix.
+- The reviewer reads the diff in parts (`scripts/diff-section.sh`): cut per file and between
+  hunks, each small enough for one `Read`, listed in the prompt. A step after it counts the parts
+  it opened (`scripts/diff-coverage.sh`): the job summary shows `Diff read: X of Y parts`, and if
+  some are missing a comment on the PR names their files. The verdict stands either way.
 - The review cycle counter is the number of trusted comments carrying
   `<!-- patufet:review`. `fix-review` refuses to run once it reaches `max-review-cycles`
   and labels `needs-human-review` instead (`scripts/fix-gate.sh`).

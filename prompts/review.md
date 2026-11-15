@@ -1,5 +1,6 @@
-Review pull request #{{pr}} of the repository `{{repository}}` (read it with `gh pr view {{pr}}`
-and `gh pr diff {{pr}}`). Do not launch subagents: do the whole review yourself in this turn.
+Review pull request #{{pr}} of the repository `{{repository}}` (its description with
+`gh pr view {{pr}}`, its diff as described under **The diff** below). Do not launch subagents:
+do the whole review yourself in this turn.
 This is automatic review cycle number {{cycle}} for this PR.
 
 Write every comment in this language: **{{language}}**.
@@ -7,6 +8,10 @@ Write every comment in this language: **{{language}}**.
 ## Plan conformance
 
 {{plan_section}}
+
+## The diff
+
+{{diff_section}}
 
 ## Scope
 
@@ -40,7 +45,8 @@ Review the whole diff looking at:
    `<!-- patufet:review cycle={{cycle}} verdict=VERDICT -->` where VERDICT is `pass`,
    `warning` or `fail`, followed by a title in bold (`**Review: ...**`) and the report: overall
    verdict, conformance with the issue plan (if any) and the list of problems found (or a
-   statement that everything is correct). **No line of this comment may start with `#`**: the
+   statement that everything is correct). If you could not read some part of the diff, name it
+   and say why. **No line of this comment may start with `#`**: the
    tool rejects such a command, so use bold text instead of Markdown headings.
 3. Finish by returning the structured result `{"verdict": "...", "summary": "..."}` with the
    same verdict as the marker. A step after you labels the PR from it and starts the next stage.

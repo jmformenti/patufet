@@ -166,6 +166,12 @@ jobs:
           own=${own%%@*}
           "$TPL_DIR/scripts/wait-for-ci.sh" "$GITHUB_REPOSITORY" "$HEAD_SHA" "$own" "$CI_WAIT_MINUTES" "$RUNNER_TEMP/ci-result.json" >> "$GITHUB_OUTPUT"
 
+      # A large `gh pr diff` reaches the agent as a short preview of a saved file, and
+      # it often reviews the preview only: the diff is cut into parts it can read whole,
+      # listed in the prompt (scripts/diff-section.sh)
+      - name: Cut the diff into parts
+        run: '"$TPL_DIR/scripts/diff-section.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER" "$RUNNER_TEMP/patufet-diff" > "$RUNNER_TEMP/diff_section.md"'
+
       - name: Render the prompt
         id: prompt
         env:
@@ -177,6 +183,7 @@ jobs:
           EXTRA_FILE: ${{ inputs.extra-instructions-file }}
         run: |
           TPL_plan_section="$(cat "$RUNNER_TEMP/plan_section.md")"; export TPL_plan_section
+          TPL_diff_section="$(cat "$RUNNER_TEMP/diff_section.md")"; export TPL_diff_section
           TPL_ci_section="$("$TPL_DIR/scripts/ci-section.sh" "$GITHUB_REPOSITORY" "$RUNNER_TEMP/ci-result.json")"; export TPL_ci_section
           "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/review.md" "$EXTRA_FILE" \
             | "$TPL_DIR/scripts/github-output.sh" text
@@ -196,6 +203,7 @@ jobs:
           claude_args: |
             --max-turns ${{ inputs.max-turns }}
             --allowedTools "${{ inputs.allowed-tools }}"
+            --add-dir ${{ runner.temp }}/patufet-diff
             --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["pass","warning","fail"]},"summary":{"type":"string"},"needs_human":{"type":"boolean"}},"required":["verdict","summary"]}'
             ${{ inputs.model != '' && format('--model {0}', inputs.model) || '' }}
             ${{ inputs.claude-args-extra }}
@@ -218,6 +226,16 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: '"$TPL_DIR/scripts/apply-review-verdict.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER" "$CYCLE"'
 
+      # Which parts of the diff the agent opened. It only informs: the verdict stands,
+      # and a person checks the parts left unread (scripts/diff-coverage.sh)
+      - name: Count the parts of the diff read
+        id: coverage
+        if: ${{ !cancelled() && steps.claude.conclusion != 'skipped' }}
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+          CYCLE: ${{ steps.context.outputs.cycle }}
+        run: '"$TPL_DIR/scripts/diff-coverage.sh" "$RUNNER_TEMP/patufet-diff/index.json" "$EXECUTION_FILE" "$PR_NUMBER" "$CYCLE" >> "$GITHUB_OUTPUT"'
+
       - name: Summary
         if: always() && env.TPL_DIR != ''
         env:
@@ -225,4 +243,6 @@ jobs:
           CYCLE: ${{ steps.context.outputs.cycle }}
           VERDICT: ${{ steps.verdict.outputs.verdict }}
           CI_STATE: ${{ steps.ci.outputs.state }}
-        run: '"$TPL_DIR/scripts/run-summary.sh" review "$EXECUTION_FILE" "PR: #$PR_NUMBER" "Cycle: $CYCLE" "CI: ${CI_STATE:-not waited for}" "Verdict: ${VERDICT:-none}"'
+          DIFF_READ: ${{ steps.coverage.outputs.read }}
+          DIFF_TOTAL: ${{ steps.coverage.outputs.total }}
+        run: '"$TPL_DIR/scripts/run-summary.sh" review "$EXECUTION_FILE" "PR: #$PR_NUMBER" "Cycle: $CYCLE" "CI: ${CI_STATE:-not waited for}" "Verdict: ${VERDICT:-none}" "Diff read: ${DIFF_READ:-?} of ${DIFF_TOTAL:-?} parts"'

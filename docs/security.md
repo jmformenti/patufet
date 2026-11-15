@@ -30,7 +30,8 @@ Pull requests from forks never receive secrets, so they cannot run the Claude ac
 | review, e2e | the PR diff, the issue and plan (review also the end of the failed CI logs; e2e also the pages of the running app) | checkout with `contents: read`; tools limited to `gh pr view/diff/comment` and `gh issue view` (no `gh pr edit`, no `gh api`, no `gh pr merge`); the verdict is a structured result that a deterministic step turns into a label; plan filtered as above |
 | mention | the comment | gated by the action's write-permission check |
 
-Untrusted text still reaches the agents: the **PR diff** itself (review, e2e), the **failed CI
+Untrusted text still reaches the agents: the **PR diff** itself (review, e2e; the review reads it
+from files a workflow step cuts it into under `$RUNNER_TEMP`, which are only read, never run), the **failed CI
 logs** (review; the code under review prints them, so they are no more trusted than the diff, and
 GitHub masks the secrets it knows in them) and the **issue body** (only through the plan you
 write, which you control). The reviewer's report then reaches `fix-review`, as it always has,
