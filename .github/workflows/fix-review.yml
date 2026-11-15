@@ -167,6 +167,20 @@ jobs:
           "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/fix-review.md" "$EXTRA_FILE" \
             | "$TPL_DIR/scripts/github-output.sh" text
 
+      # The action denies test runners, package managers and interpreters on a PR whose
+      # author it cannot confirm has write access, and it never trusts a bot: on the PRs
+      # implement opens (claude[bot]) the fix could not be tested. Lifted for claude[bot]
+      # and people with write access only (scripts/untrusted-pr-restriction.sh)
+      - name: Decide whether the agent may run the PR's code
+        id: trust
+        if: steps.gate.outputs.state == 'fix'
+        env:
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          restrict=$("$TPL_DIR/scripts/untrusted-pr-restriction.sh" "$GITHUB_REPOSITORY" "$AUTHOR")
+          echo "restrict=$restrict" >> "$GITHUB_OUTPUT"
+          echo "PR author: $AUTHOR; restrict_untrusted_prs: $restrict"
+
       - name: Run Claude Code (apply the review)
         id: claude
         if: steps.gate.outputs.state == 'fix'
@@ -175,6 +189,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           allowed_bots: ${{ inputs.allowed-bots }}
+          restrict_untrusted_prs: ${{ steps.trust.outputs.restrict || 'true' }}
           show_full_output: ${{ inputs.show-full-output }}
           claude_args: |
             --max-turns ${{ inputs.max-turns }}

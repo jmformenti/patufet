@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Fix: `fix-review` could not run the tests of the PRs `implement` opens. Since 2026-11-12,
+  claude-code-action denies test runners, package managers and interpreters on a PR whose author
+  it cannot confirm has write access, and it never trusts a bot such as `claude[bot]`: the fix
+  ended without a push and the PR got `needs-human-review`. `fix-review` now lifts that
+  restriction (`restrict_untrusted_prs`) for PRs by `claude[bot]` or by someone with write
+  access, and keeps it for anyone else (`docs/security.md`).
 - Fix: `v1` and `v1.7.0` had been published as annotated tags, and with them GitHub could not
   resolve the stages that `pull-request.yml` calls: a caller on `@v1` failed with `workflow was
   not found` on `issues` events, so `implement` did not start. Both tags now point at the same

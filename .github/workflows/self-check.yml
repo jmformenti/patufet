@@ -26,9 +26,13 @@ jobs:
         run: bash <(curl -sSL "https://raw.githubusercontent.com/rhysd/actionlint/v${ACTIONLINT_VERSION}/scripts/download-actionlint.bash") "$ACTIONLINT_VERSION"
 
       # job.workflow_repository / job.workflow_sha are documented GitHub context
-      # properties that actionlint does not know yet
+      # properties that actionlint does not know yet, and its copy of
+      # claude-code-action's inputs predates restrict_untrusted_prs (2026-11-12)
       - name: actionlint (reusable workflows)
-        run: ./actionlint -color -ignore 'property "workflow_(repository|sha)" is not defined in object type'
+        run: >-
+          ./actionlint -color
+          -ignore 'property "workflow_(repository|sha)" is not defined in object type'
+          -ignore 'input "restrict_untrusted_prs" is not defined in action "anthropics/claude-code-action@v1"'
 
       - name: actionlint (caller templates)
         run: ./actionlint -color templates/.github/workflows/*.yml

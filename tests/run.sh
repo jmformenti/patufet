@@ -339,6 +339,22 @@ has "after: a missing needs-human-review label is created first" "gh label creat
 lacks "after: no reviewer, no mention" "@" "$(calls)"
 if STARTED_SHA=x LABEL_NHR=NHR GH_STUB_PR_VIEW="$work/pr.json" "$s/fix-gate.sh" maybe 7 > /dev/null 2>&1; then fail "unknown mode → error"; else pass "unknown mode → error"; fi
 
+echo "# untrusted-pr-restriction.sh"
+upr() { "$s/untrusted-pr-restriction.sh" octo/app "$@" 2>/dev/null || echo "EXIT $?"; }
+: > "$GH_STUB_LOG"
+eq "claude[bot] runs the tests" false "$(upr 'claude[bot]')"
+eq "claude[bot] needs no API call" "" "$(cat "$GH_STUB_LOG")"
+eq "another bot keeps the restriction" true "$(upr 'dependabot[bot]')"
+eq "github-actions[bot] keeps the restriction" true "$(upr 'github-actions[bot]')"
+eq "an empty author keeps the restriction" true "$(upr '')"
+eq "a login with odd characters keeps the restriction" true "$(upr 'ana/../x')"
+eq "write access lifts it" false "$(GH_STUB_PERMISSION="write" upr ana)"
+eq "admin lifts it" false "$(GH_STUB_PERMISSION="admin" upr ana)"
+eq "none keeps it" true "$(GH_STUB_PERMISSION="none" upr ana)"
+eq "read keeps it" true "$(GH_STUB_PERMISSION="read" upr ana)"
+eq "not a collaborator (404) keeps it" true "$(upr stranger)"
+has "asks the permission of the author" "gh api repos/octo/app/collaborators/stranger/permission" "$(cat "$GH_STUB_LOG")"
+
 echo "# detect-pr-ci.sh"
 ci="$work/ci-repo"
 mkdir -p "$ci/.github/workflows"
@@ -455,6 +471,10 @@ has "the prompt explains needs_human" '"needs_human": true' "$(cat "$root/prompt
 has "a re-run of e2e restores pass" 'name: Restore the pass label on a re-run' "$wf_e2e"
 wf_fix=$(cat "$root/.github/workflows/fix-review.yml")
 has "fix-review decides with the gate" 'scripts/fix-gate.sh" before "$PR_NUMBER"' "$wf_fix"
+has "fix-review decides the untrusted-PR restriction with the script" 'scripts/untrusted-pr-restriction.sh" "$GITHUB_REPOSITORY" "$AUTHOR")' "$wf_fix"
+has "fix-review passes it to the action, on by default" "restrict_untrusted_prs: \${{ steps.trust.outputs.restrict || 'true' }}" "$wf_fix"
+has "the author is the PR's, from the event" 'AUTHOR: ${{ github.event.pull_request.user.login }}' "$wf_fix"
+lacks "no other stage lifts the restriction" "restrict_untrusted_prs" "$(cat "$root"/.github/workflows/{review,e2e,mention,implement,pull-request}.yml)"
 has "fix-review checks that the agent pushed" 'scripts/fix-gate.sh" after "$PR_NUMBER"' "$wf_fix"
 has "the hand-over also runs when a step before the agent failed" "if: \${{ !cancelled() && steps.gate.outputs.state == 'fix' }}" "$(awk '/name: Hand over to a human if nothing was pushed/{f=1} f&&/if:/{print;exit}' "$root/.github/workflows/fix-review.yml")"
 has "the agent only runs when the gate says fix" "if: steps.gate.outputs.state == 'fix'" "$(awk '/id: claude/{f=1} f&&/if:/{print;exit}' "$root/.github/workflows/fix-review.yml")"

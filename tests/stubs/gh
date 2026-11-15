@@ -9,6 +9,10 @@ case "$1 ${2:-}" in
     case "$2" in
       */issues/*/comments) cat "${GH_STUB_ISSUE_COMMENTS:?}" ;;
       */pulls/*/comments)  cat "${GH_STUB_PR_COMMENTS:?}" ;;
+      */collaborators/*/permission)
+        # GH_STUB_PERMISSION: the permission to answer; unset = not a collaborator (404)
+        if [ -z "${GH_STUB_PERMISSION:-}" ]; then echo "HTTP 404: Not Found" >&2; exit 1; fi
+        printf '{"permission":"%s"}' "$GH_STUB_PERMISSION" ;;
       */actions/runs/*/jobs*)
         # GH_STUB_JOBS_DIR/<run id>.json; a missing file is an error, like an unreadable run
         id=${2#*/actions/runs/}; id=${id%%/*}
