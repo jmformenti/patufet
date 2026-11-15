@@ -30,7 +30,7 @@ jq -r --argjson size "$(wc -c < "$out/full.diff")" '
   # File names come from the PR: keep them on one line and out of the table syntax
   def clean: gsub("[`|\r\n]"; "_");
   def count($n; $word): "\($n) \($word)\(if $n == 1 then "" else "s" end)";
-  def part_name: "\(.file | clean)\(if .parts > 1 then " (\(.part)/\(.parts))" else "" end)";
+  def part_name: "\(.file | clean)\(if .parts > 1 then " (\(.part)/\(.parts))" else "" end)\(if .continues then ", continues a hunk at " + ([if .continues.old then "old line \(.continues.old)" else empty end, if .continues.new then "new line \(.continues.new)" else empty end] | join(", ")) else "" end)";
   (map(select(.skip | not))) as $read
   | (map(select(.skip))) as $skip
   | if length == 0 then "The diff of this PR is empty."
@@ -49,5 +49,5 @@ jq -r --argjson size "$(wc -c < "$out/full.diff")" '
         ($skip[] | "- `\(.path)`: \(part_name)")
        else empty end),
       "",
-      "A part marked (2/3) continues the previous part of the same file. For inline comments use the line numbers of the new file, from the `@@ -a,b +c,d @@` headers. The checkout is the PR merged into its base, so you can open a whole file with `Read` for context."
+      "A part marked (2/3) continues the previous part of the same file. For inline comments use the line numbers of the new file, from the `@@ -a,b +c,d @@` headers. A part that starts inside a hunk has no header: the table gives the old and new line numbers of its first line, so count from there (a `+` line moves only the new number, a `-` line only the old one). The checkout is the PR merged into its base, so you can open a whole file with `Read` for context."
     end' "$out/index.json"

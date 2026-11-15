@@ -7,7 +7,8 @@
   did not always open the file. The workflow now cuts the diff into parts the reviewer reads
   whole (`scripts/diff-section.sh`) and counts the parts it opened (`scripts/diff-coverage.sh`):
   the job summary shows `Diff read: X of Y parts`, and a comment on the PR names the files left
-  unread. The verdict does not change. A caller whose `review-allowed-tools` lacks `Read` gets
+  unread. A part cut inside a hunk carries the line where it starts, for the inline
+  comments. The verdict does not change. A caller whose `review-allowed-tools` lacks `Read` gets
   that comment on every review.
 
 ## v1.7.1 — 2026-11-15

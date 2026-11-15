@@ -14,7 +14,8 @@
 #
 # Usage: split-diff.sh <diff-file> <out-dir>
 # Writes <out-dir>/parts/NNN-<name>[.K].diff and <out-dir>/index.json, a list of
-# {path, file, part, parts, lines, bytes, added, removed, skip}.
+# {path, file, part, parts, lines, bytes, added, removed, skip, continues}; continues is
+# {old, new}, the line numbers of the first line of a part that starts inside a hunk.
 set -euo pipefail
 
 diff_file="${1:?usage: split-diff.sh <diff-file> <out-dir>}"
@@ -118,6 +119,34 @@ def chunks(block):
     return groups
 
 
+HUNK = re.compile(rb"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+
+
+def positions(block):
+    """For each line of a file's diff, the old and new line numbers it stands at, or None
+    outside a hunk. A part that starts inside a hunk has no @@ header of its own: these
+    numbers tell the reviewer where it is, for its inline comments."""
+    result, old, new, no_old, no_new = [], None, None, False, False
+    for line in block:
+        m = HUNK.match(line)
+        if m:
+            old, new = max(int(m.group(1)), 1), max(int(m.group(3)), 1)
+            # "-0,0" is a new file and "+0,0" a deleted one: that side has no lines
+            no_old, no_new = m.group(2) == b"0", m.group(4) == b"0"
+            result.append(None)
+            continue
+        result.append((None if no_old else old, None if no_new else new) if old is not None else None)
+        if old is None:
+            continue
+        if line.startswith(b"-"):
+            old += 1
+        elif line.startswith(b"+"):
+            new += 1
+        elif line.startswith(b" "):
+            old, new = old + 1, new + 1
+    return result
+
+
 def safe(name):
     name = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("._") or "file"
     return name[-60:]
@@ -133,7 +162,10 @@ for n, block in enumerate(files, 1):
     header = 0  # the lines before the first hunk: "--- a/x" is not a removed line
     while header < len(block) and not block[header].startswith(b"@@"):
         header += 1
+    where = positions(block)
+    start = 0
     for k, group in enumerate(groups, 1):
+        at, start = where[start], start + len(group)
         suffix = f".{k}" if len(groups) > 1 else ""
         path = os.path.join(parts_dir, f"{n:03d}-{safe(name)}{suffix}.diff")
         with open(path, "wb") as fh:
@@ -149,6 +181,9 @@ for n, block in enumerate(files, 1):
             "added": sum(1 for l in body if l.startswith(b"+")),
             "removed": sum(1 for l in body if l.startswith(b"-")),
             "skip": skip,
+            # set when the part starts inside a hunk: the old and new line of its first line
+            # (null on the side a new or deleted file does not have)
+            "continues": {"old": at[0], "new": at[1]} if at else None,
         })
 
 with open(os.path.join(out, "index.json"), "w", encoding="utf-8") as fh:

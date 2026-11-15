@@ -370,6 +370,14 @@ eq "lockfiles and binaries are skipped, the rest is not" "package-lock.json img/
 eq "added / removed per part, headers not counted" "+2-1 +1-1 +4-0 +8-0 +0-1" \
   "$(jq -r '[.[] | select(.file == "src/app.js" or .file == "docs/café notes.md" or .file == "old.txt") | "+\(.added)-\(.removed)"] | join(" ")' "$d/index.json")"
 eq "the header goes with the first hunk" "@@ -0,0 +1,12 @@" "$(sed -n 6p "$d/parts/004-docs_caf_notes.md.1.diff")"
+eq "a part cut inside a hunk says where it starts; a new file has no old line" '{"old":null,"new":5}' "$(jq -c '.[] | select(.file == "docs/café notes.md" and .part == 2) | .continues' "$d/index.json")"
+eq "a part that starts at a hunk or a file needs no position" "" "$(jq -r '.[] | select(.continues != null and .file != "docs/café notes.md") | .file' "$d/index.json")"
+printf '%s\n' 'diff --git a/m.txt b/m.txt' '--- a/m.txt' '+++ b/m.txt' '@@ -10,4 +20,5 @@' ' a' '-b' '+c' '+d' ' e' '-f' '+g' > "$work/mid.diff"
+PATUFET_DIFF_PART_LINES=4 "$s/split-diff.sh" "$work/mid.diff" "$work/mid"
+eq "positions count context, removed and added lines" '[null,{"old":10,"new":20},{"old":12,"new":23}]' "$(jq -c '[.[].continues]' "$work/mid/index.json")"
+printf '%s\n' 'diff --git a/gone.txt b/gone.txt' 'deleted file mode 100644' '--- a/gone.txt' '+++ /dev/null' '@@ -1,5 +0,0 @@' '-1' '-2' '-3' '-4' '-5' > "$work/del.diff"
+PATUFET_DIFF_PART_LINES=4 "$s/split-diff.sh" "$work/del.diff" "$work/del"
+eq "a deleted file has no new line" '[null,null,{"old":4,"new":null}]' "$(jq -c '[.[].continues]' "$work/del/index.json")"
 "$s/split-diff.sh" /dev/null "$work/diff-empty"
 eq "an empty diff has no parts" "[]" "$(jq -c . "$work/diff-empty/index.json")"
 
@@ -378,6 +386,7 @@ sec=$(GH_STUB_PR_DIFF="$fx/pr.diff" PATUFET_DIFF_PART_LINES=10 "$s/diff-section.
 has "the section counts files and parts" "in 6 files, cut into 8 parts" "$sec"
 has "the section asks to read every part" "Read every part in the table below, in order" "$sec"
 has "a part to read is listed with its path" "| \`$work/sec/parts/001-src_app.js.1.diff\` | src/app.js (1/2) | +2 −1 |" "$sec"
+has "a part cut inside a hunk shows its position" "| docs/café notes.md (2/2), continues a hunk at new line 5 | +8 −0 |" "$sec"
 has "skipped parts are listed apart" "- \`$work/sec/parts/002-package-lock.json.diff\`: package-lock.json" "$sec"
 lacks "a skipped part is not in the table" "| \`$work/sec/parts/003-img_logo.png.diff\`" "$sec"
 has "the diff is fetched for the PR" "gh pr diff 7 -R octo/app" "$(cat "$GH_STUB_LOG")"

@@ -102,7 +102,8 @@ caller grants, and each stage declares only what it needs: `review` and `e2e` ru
 A large `gh pr diff` reaches the agent only as a short preview of a file Claude Code saved, and
 the reviewer then tends to review the preview. So the workflow cuts the diff into parts
 (`scripts/diff-section.sh`). Each file becomes one or more parts of at most 600 lines and 20 KB,
-cut between hunks where it can. The prompt lists every part, and the agent reads them with
+cut between hunks where it can; a part cut inside a hunk is listed with the old and new line
+where it starts, so the inline comments land on the right line. The prompt lists every part, and the agent reads them with
 `Read` (it gets `--add-dir` for the directory of the parts).
 
 Lockfiles (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `*.lock`), minified or generated
