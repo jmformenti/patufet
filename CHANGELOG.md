@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.7.1 — 2026-11-15
+
 - Fix: `fix-review` could not run the tests of the PRs `implement` opens. Since 2026-11-12,
   claude-code-action denies test runners, package managers and interpreters on a PR whose author
   it cannot confirm has write access, and it never trusts a bot such as `claude[bot]`: the fix
