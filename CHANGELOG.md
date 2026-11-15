@@ -8,6 +8,11 @@
   ended without a push and the PR got `needs-human-review`. `fix-review` now lifts that
   restriction (`restrict_untrusted_prs`) for PRs by `claude[bot]` or by someone with write
   access, and keeps it for anyone else (`docs/security.md`).
+- Fix: `v1` and `v1.7.0` had been published as annotated tags, and with them GitHub could not
+  resolve the stages that `pull-request.yml` calls: a caller on `@v1` failed with `workflow was
+  not found` on `issues` events, so `implement` did not start. Both tags now point at the same
+  commit as lightweight tags; nothing changes for consumers. `CONTRIBUTING.md` says so in the
+  release steps.
 
 ## v1.7.0 — 2026-11-14
 

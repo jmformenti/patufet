@@ -48,6 +48,10 @@ To add a test, add a fixture (a real API response, trimmed) and a few `eq` / `ha
    git tag "$version" && git tag -f v1 "$version"
    git push origin "$version" && git push -f origin v1
    ```
+   Lightweight tags only, never `git tag -a`: with an annotated `v1`, GitHub cannot resolve the
+   `./.github/workflows/*.yml` that `pull-request.yml` calls (`workflow was not found`), and on
+   an `issues` event the whole caller fails before any job starts, `implement` included. Check
+   that `git cat-file -t v1` prints `commit`.
 3. Create the GitHub release, with that version's section of `CHANGELOG.md` as notes:
    ```bash
    notes=$(mktemp)
