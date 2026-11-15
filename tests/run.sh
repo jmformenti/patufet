@@ -381,6 +381,8 @@ has "a part to read is listed with its path" "| \`$work/sec/parts/001-src_app.js
 has "skipped parts are listed apart" "- \`$work/sec/parts/002-package-lock.json.diff\`: package-lock.json" "$sec"
 lacks "a skipped part is not in the table" "| \`$work/sec/parts/003-img_logo.png.diff\`" "$sec"
 has "the diff is fetched for the PR" "gh pr diff 7 -R octo/app" "$(cat "$GH_STUB_LOG")"
+printf '%s\n' 'diff --git a/a.txt b/a.txt' '--- a/a.txt' '+++ b/a.txt' '@@ -1 +1 @@' '-x' '+y' > "$work/one.diff"
+has "one file, one part: singular" "in 1 file, cut into 1 part." "$(GH_STUB_PR_DIFF="$work/one.diff" "$s/diff-section.sh" octo/app 7 "$work/sec-one")"
 sec=$(GH_STUB_PR_DIFF=/dev/null "$s/diff-section.sh" octo/app 7 "$work/sec-empty")
 eq "an empty diff says so" "The diff of this PR is empty." "$sec"
 sec=$(env -u GH_STUB_PR_DIFF "$s/diff-section.sh" octo/app 7 "$work/sec-fail" 2>/dev/null); rc=$?

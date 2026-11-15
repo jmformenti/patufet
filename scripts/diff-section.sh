@@ -29,12 +29,13 @@ fi
 jq -r --argjson size "$(wc -c < "$out/full.diff")" '
   # File names come from the PR: keep them on one line and out of the table syntax
   def clean: gsub("[`|\r\n]"; "_");
+  def count($n; $word): "\($n) \($word)\(if $n == 1 then "" else "s" end)";
   def part_name: "\(.file | clean)\(if .parts > 1 then " (\(.part)/\(.parts))" else "" end)";
   (map(select(.skip | not))) as $read
   | (map(select(.skip))) as $skip
   | if length == 0 then "The diff of this PR is empty."
     else
-      "The diff of this PR is \(($size / 1024 * 10 | round) / 10) KB in \([.[].file] | unique | length) files, cut into \(length) parts. Each part is a file you can read whole with one `Read` call.",
+      "The diff of this PR is \(($size / 1024 * 10 | round) / 10) KB in \(count([.[].file] | unique | length; "file")), cut into \(count(length; "part")). Each part is a file you can read whole with one `Read` call.",
       "",
       "**Read every part in the table below, in order, with `Read`, before you write any comment.** Do not rely on `gh pr diff`: Claude Code shows only a preview of a large output. A step after you counts the parts you read and reports any you missed on the PR.",
       "",
