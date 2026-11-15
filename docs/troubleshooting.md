@@ -27,8 +27,12 @@ decides again, so fixing the old report would push a stale change. Expected; not
 **`needs-human-review` with "fix-review ended without pushing a change".**
 The fixer ran and pushed nothing, so no new review starts. Usual causes: it left a review point as
 a question (see its comment on the PR), the report asked for no code change, or its tools were
-denied (see the job log). Answer the question or fix the point and push; the push starts the next
-review, and a `pass` removes the label.
+denied (see the job log). If the log says *"The author of pull request #N is not confirmed to have
+write access, so commands that run code from the checkout are denied"*, the action's
+`restrict_untrusted_prs` blocked the tests: patufet lifts it only on PRs by `claude[bot]` or by
+someone with write access (see [security](security.md#running-the-prs-code)), so either the author is
+someone else or the run used a patufet version without that fix.
+Answer the question or fix the point and push; the push starts the next review, and a `pass` removes the label.
 
 **The agent's push did not trigger the review.**
 Events created with `GITHUB_TOKEN` never trigger workflows. The action pushes with its own

@@ -39,6 +39,23 @@ rendered by the PR's code.
 On a public repository, assume that a stranger can plant instructions in an issue body; the plan gate means you have read
 it before anything with write access runs.
 
+## Running the PR's code
+
+`fix-review` runs the tests and builds of the PR it fixes, which is running the PR's code with the
+job's tokens. claude-code-action guards this with `restrict_untrusted_prs`: on a PR whose author
+it cannot confirm has write access, it denies test runners, package managers, interpreters and
+shells (`./mvnw`, `yarn`, `python3`, `bash`...) even when `allowed-tools` allows them. It never
+trusts a bot, so on its own it would block the tests of every PR `implement` opens, whose author
+is `claude[bot]`.
+
+`fix-review` therefore lifts it (`scripts/untrusted-pr-restriction.sh`) only when the PR's author
+is `claude[bot]`, whose PRs only `implement` opens from a plan a person approved, or has `write` /
+`admin` access. Any other author, including other bots, keeps the restriction, and so does a
+failed permission lookup. Only people with write access can push to the branch of a PR from the
+same repository, and a PR from a fork gets no secrets. The other stages keep the action's
+default: review and e2e only allow `gh` subcommands, and the e2e hooks run in a workflow step,
+not in the agent.
+
 ## Tokens
 
 - `CLAUDE_CODE_OAUTH_TOKEN` / `ANTHROPIC_API_KEY`: repository secrets. The caller passes only

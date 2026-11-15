@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Fix: `fix-review` could not run the tests of the PRs `implement` opens. Since 2026-11-12,
+  claude-code-action denies test runners, package managers and interpreters on a PR whose author
+  it cannot confirm has write access, and it never trusts a bot such as `claude[bot]`: the fix
+  ended without a push and the PR got `needs-human-review`. `fix-review` now lifts that
+  restriction (`restrict_untrusted_prs`) for PRs by `claude[bot]` or by someone with write
+  access, and keeps it for anyone else (`docs/security.md`).
+
 ## v1.7.0 — 2026-11-14
 
 - New reusable workflow `pull-request.yml`: review → fix-review → e2e → fix-e2e chained inside
