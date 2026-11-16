@@ -36,12 +36,21 @@ jobs:
       issues: read
       id-token: write
       actions: read # lets Claude read CI results on PRs
+    # For gh's git credential helper below: the job's token, read-only here
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 1
           persist-credentials: false
+
+      # On a PR comment the action fetches the PR's branch itself, and without
+      # credentials that fails on a private repository ("could not read Username").
+      # As in fix-review, git gets them from gh rather than from the checkout
+      - name: Configure git credentials for the PR fetch
+        run: gh auth setup-git
 
       - name: Run Claude Code
         uses: anthropics/claude-code-action@v1

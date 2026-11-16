@@ -68,7 +68,8 @@ not in the agent.
   Claude Code (its official action accepts it for that person's repositories); never share
   one across people or organisations, and use an API key for anything that is not your own
   usage. See Anthropic's [legal and compliance](https://code.claude.com/docs/en/legal-and-compliance) page.
-- Checkout uses `persist-credentials: false`; pushes go through `gh auth setup-git`.
+- Checkout uses `persist-credentials: false`; pushes go through `gh auth setup-git`, and so does
+  the fetch of the PR's branch in `mention`, with its read-only `GITHUB_TOKEN`.
 - In `e2e`, the job's `GITHUB_TOKEN` is set only on the steps that call `gh`. The hooks and the
   application they start are code of the PR and do not get it.
 - **Inside the action, `gh` and git use the Claude App token**, not the job's
