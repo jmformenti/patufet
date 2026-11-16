@@ -9,7 +9,7 @@ on:
   workflow_call:
     inputs:
       model:
-        description: Claude model override (empty = action default)
+        description: Claude model (empty = patufet's default for this stage, claude-sonnet-5-5)
         type: string
         default: ''
       claude-args-extra:
@@ -51,5 +51,5 @@ jobs:
           additional_permissions: |
             actions: read
           claude_args: |
-            ${{ inputs.model != '' && format('--model {0}', inputs.model) || '' }}
+            --model ${{ inputs.model != '' && inputs.model || 'claude-sonnet-5-5' }}
             ${{ inputs.claude-args-extra }}

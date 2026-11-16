@@ -599,10 +599,26 @@ for pair in review:review fix-review:fix e2e:e2e; do
       *) mapped="$name" ;;
     esac
     eq "$stage: $name is $mapped, same type and default" "$mapped"$'\t'"$type"$'\t'"$default" "$(awk -F'\t' -v n="$mapped" '$1 == n' "$work/pr-inputs")"
+    if [ "$name" = model ]; then
+      # model has a per-stage input that wins over the shared one
+      eq "$stage: $prefix-model, same type and default as model" "$prefix-model"$'\t'"$type"$'\t'"$default" "$(awk -F'\t' -v n="$prefix-model" '$1 == n' "$work/pr-inputs")"
+      passed="inputs.$prefix-model != '' && inputs.$prefix-model || inputs.model"
+    else
+      passed="inputs.$mapped"
+    fi
     for job in $([ "$stage" = fix-review ] && echo "fix-review fix-e2e" || echo "$stage"); do
-      has "$job gets $name" "      $name: \${{ inputs.$mapped }}" "$(wf_job "$wf_pr" "$job")"
+      has "$job gets $name" "      $name: \${{ $passed }}" "$(wf_job "$wf_pr" "$job")"
     done
   done < "$work/stage-inputs"
+done
+
+echo "# each stage has patufet's own default model"
+for pair in implement:claude-opus-5-5 review:claude-opus-5-5 fix-review:claude-sonnet-5-5 e2e:claude-sonnet-5-5 mention:claude-sonnet-5-5; do
+  stage=${pair%%:*}; model=${pair##*:}
+  wf="$root/.github/workflows/$stage.yml"
+  has "$stage: an empty model falls back to $model" "--model \${{ inputs.model != '' && inputs.model || '$model' }}" "$(cat "$wf")"
+  has "$stage: the model input names its default" "patufet's default for this stage, $model)" "$(cat "$wf")"
+  has "$stage: $model is documented" "| \`$stage\` | \`$model\` |" "$(cat "$root/docs/customization.md")"
 done
 for stage in review e2e; do
   has "$stage: the report has no line starting with #" 'No line of this comment may start with `#`' "$(cat "$root/prompts/$stage.md")"

@@ -7,7 +7,8 @@
 #
 # Inputs: one that means the same in every stage keeps its name (language, model,
 # labels...); one that each stage sets differently takes the stage as a prefix
-# (review-max-turns, fix-max-turns, e2e-max-turns). The defaults are those of the
+# (review-max-turns, fix-max-turns, e2e-max-turns). model is both: review-model,
+# fix-model and e2e-model win over it for their stage. The defaults are those of the
 # stages (tests/run.sh checks that they match and that every input is passed on).
 #
 # Caller requirements:
@@ -37,7 +38,7 @@ on:
         type: string
         default: en
       model:
-        description: Claude model override, for every stage (empty = action default)
+        description: Claude model for every stage that has no model of its own (review-model, fix-model, e2e-model). Empty = patufet's default for each stage
         type: string
         default: ''
       allowed-bots:
@@ -80,6 +81,10 @@ on:
         description: review — --max-turns for the agent
         type: number
         default: 400
+      review-model:
+        description: review — Claude model. Empty = model, or patufet's default (claude-opus-5-5)
+        type: string
+        default: ''
       review-allowed-tools:
         description: review — --allowedTools for the agent. gh runs with the Claude App token, which can write; keep this list to reading and commenting
         type: string
@@ -108,6 +113,10 @@ on:
         description: fix-review and fix-e2e — --max-turns for the agent
         type: number
         default: 400
+      fix-model:
+        description: fix-review and fix-e2e — Claude model. Empty = model, or patufet's default (claude-sonnet-5-5)
+        type: string
+        default: ''
       fix-allowed-tools:
         description: fix-review and fix-e2e — --allowedTools for the agent
         type: string
@@ -132,6 +141,10 @@ on:
         description: e2e — --max-turns for the agent
         type: number
         default: 200
+      e2e-model:
+        description: e2e — Claude model. Empty = model, or patufet's default (claude-sonnet-5-5)
+        type: string
+        default: ''
       e2e-allowed-tools:
         description: e2e — --allowedTools for the agent. gh runs with the Claude App token, which can write (and merge); keep this list to reading and commenting
         type: string
@@ -177,7 +190,7 @@ jobs:
       human-reviewer: ${{ inputs.human-reviewer }}
       branch-prefix: ${{ inputs.branch-prefix }}
       language: ${{ inputs.language }}
-      model: ${{ inputs.model }}
+      model: ${{ inputs.review-model != '' && inputs.review-model || inputs.model }}
       max-turns: ${{ inputs.review-max-turns }}
       allowed-tools: ${{ inputs.review-allowed-tools }}
       allowed-bots: ${{ inputs.allowed-bots }}
@@ -214,7 +227,7 @@ jobs:
       human-reviewer: ${{ inputs.human-reviewer }}
       extra-instructions-file: ${{ inputs.fix-extra-instructions-file }}
       language: ${{ inputs.language }}
-      model: ${{ inputs.model }}
+      model: ${{ inputs.fix-model != '' && inputs.fix-model || inputs.model }}
       max-turns: ${{ inputs.fix-max-turns }}
       allowed-tools: ${{ inputs.fix-allowed-tools }}
       allowed-bots: ${{ inputs.allowed-bots }}
@@ -247,7 +260,7 @@ jobs:
       human-reviewer: ${{ inputs.human-reviewer }}
       branch-prefix: ${{ inputs.branch-prefix }}
       language: ${{ inputs.language }}
-      model: ${{ inputs.model }}
+      model: ${{ inputs.e2e-model != '' && inputs.e2e-model || inputs.model }}
       max-turns: ${{ inputs.e2e-max-turns }}
       allowed-tools: ${{ inputs.e2e-allowed-tools }}
       allowed-bots: ${{ inputs.allowed-bots }}
@@ -280,7 +293,7 @@ jobs:
       human-reviewer: ${{ inputs.human-reviewer }}
       extra-instructions-file: ${{ inputs.fix-extra-instructions-file }}
       language: ${{ inputs.language }}
-      model: ${{ inputs.model }}
+      model: ${{ inputs.fix-model != '' && inputs.fix-model || inputs.model }}
       max-turns: ${{ inputs.fix-max-turns }}
       allowed-tools: ${{ inputs.fix-allowed-tools }}
       allowed-bots: ${{ inputs.allowed-bots }}

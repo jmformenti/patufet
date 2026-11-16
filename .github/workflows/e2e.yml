@@ -36,7 +36,7 @@ on:
         type: string
         default: en
       model:
-        description: Claude model override (empty = action default)
+        description: Claude model (empty = patufet's default for this stage, claude-sonnet-5-5)
         type: string
         default: ''
       max-turns:
@@ -230,7 +230,7 @@ jobs:
             --mcp-config '{"mcpServers":{"playwright":{"command":"npx","args":["@playwright/mcp@${{ inputs.playwright-mcp-version }}","--headless"]}}}'
             --allowedTools "${{ inputs.allowed-tools }}"
             --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["pass","fail"]},"summary":{"type":"string"}},"required":["verdict","summary"]}'
-            ${{ inputs.model != '' && format('--model {0}', inputs.model) || '' }}
+            --model ${{ inputs.model != '' && inputs.model || 'claude-sonnet-5-5' }}
             ${{ inputs.claude-args-extra }}
           prompt: ${{ steps.prompt.outputs.text }}
 

@@ -22,7 +22,7 @@ Common to `implement`, `review`, `fix-review`, `e2e`:
 | Input | Default | Notes |
 |---|---|---|
 | `language` | `en` | Language of the comments / PR descriptions Claude writes. Free text or ISO code. Code and commit messages follow the repository conventions, not this. |
-| `model` | *(action default)* | Passed as `--model`. A cheaper model for `review` is a common saving. |
+| `model` | per stage, see [Models](#models) | Passed as `--model`. |
 | `max-turns` | 400 (implement, review, fix-review) / 200 (e2e) | Hard cap on agent turns. |
 | `allowed-tools` | per workflow | `--allowedTools`. Implementer and fixer get `Bash,Edit,Write,Read,Glob,Grep`; reviewer and e2e tester only `gh pr view/diff/comment`, `gh issue view` and their read / MCP tools (they do not label: the workflow does). Inside the action `gh` uses the Claude App token, which **can write**: widen these two only knowing that (see [security.md](security.md)). |
 | `claude-args-extra` | `''` | Anything else for `claude_args`. |
@@ -63,6 +63,25 @@ Outputs: `verdict` (the label set: `pass` / `warning` / `fail`, empty when none)
 
 `mention`: `model`, `claude-args-extra`, `timeout-minutes`.
 
+### Models
+
+With `model` empty, each stage runs with the model patufet chooses for it:
+
+| Stage | Default model | Why |
+|---|---|---|
+| `implement` | `claude-opus-5-5` | The most open work, from an issue to working code. A better first version saves fix cycles. |
+| `review` | `claude-opus-5-5` | The quality gate: a bug it misses costs more than the difference in price. |
+| `fix-review` | `claude-sonnet-5-5` | Concrete findings to apply, and it can run up to `max-review-cycles` times. Also `fix-e2e`. |
+| `e2e` | `claude-sonnet-5-5` | Many tool calls and page snapshots: volume more than reasoning. |
+| `mention` | `claude-sonnet-5-5` | Ad-hoc requests; set `model` for heavier ones. |
+
+On a subscription (`CLAUDE_CODE_OAUTH_TOKEN`) a larger model uses the usage limit faster; with
+an API key it costs more per token. Claude Code may still use a small model for its own
+auxiliary tasks; patufet does not set that one.
+
+In `pull-request`, `review-model`, `fix-model` and `e2e-model` set one stage; `model` sets every
+stage left empty. An empty value at both levels leaves the stage's default.
+
 ### `pull-request`
 
 `pull-request.yml` runs the three stages above and passes every one of their inputs on, with the
@@ -71,7 +90,9 @@ same defaults (`tests/run.sh` checks it). The rule for the names:
 | Input of `pull-request` | Goes to |
 |---|---|
 | `e2e` (default `false`) | Turns the live e2e stage on. With `false` the flow ends at the review's `pass`. |
-| `language`, `model`, `human-reviewer`, `branch-prefix`, `allowed-bots`, `claude-args-extra`, `show-full-output`, `label-pass`, `label-warning`, `label-fail`, `label-needs-human-review` | The input of the same name of every stage that has it. One value for the whole pull request. |
+| `language`, `human-reviewer`, `branch-prefix`, `allowed-bots`, `claude-args-extra`, `show-full-output`, `label-pass`, `label-warning`, `label-fail`, `label-needs-human-review` | The input of the same name of every stage that has it. One value for the whole pull request. |
+| `model` | `model` of every stage whose own input below is empty |
+| `review-model`, `fix-model`, `e2e-model` | `model` of `review`, `fix-review` (and `fix-e2e`), `e2e`; empty = `model` |
 | `ci-wait-timeout-minutes` | `review` |
 | `max-review-cycles`, `java-version`, `node-version` | `fix-review` (and `fix-e2e`, which is the same workflow) |
 | `install-playwright`, `playwright-mcp-version` | `e2e` |
@@ -79,7 +100,7 @@ same defaults (`tests/run.sh` checks it). The rule for the names:
 | `fix-extra-instructions-file`, `fix-max-turns`, `fix-allowed-tools`, `fix-timeout-minutes` | `fix-review` and `fix-e2e`, without the prefix |
 | `e2e-up-script`, `e2e-down-script`, `e2e-extra-instructions-file`, `e2e-max-turns`, `e2e-allowed-tools`, `e2e-timeout-minutes` | `e2e`, without the prefix |
 
-`model` is one value for the three stages. To give each stage its own, call `review.yml`,
+To change more than the inputs allow (other permissions, conditions or jobs), call `review.yml`,
 `fix-review.yml` and `e2e.yml` as separate jobs of the caller, as the callers older than v1.7.0
 do. Take the four jobs of `pull-request.yml` with their `needs:`, `if:` and `permissions:`, and
 change three things, since they are written to run inside patufet:

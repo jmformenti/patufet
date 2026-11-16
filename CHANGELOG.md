@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Feat: patufet chooses the model of each stage: `claude-opus-5-5` for `implement` and `review`,
+  `claude-sonnet-5-5` for `fix-review`, `fix-e2e`, `e2e` and `mention`. Until now an empty
+  `model` left claude-code-action's default (Sonnet 5.5 on the current consumers), so a caller
+  that sets no `model` now runs `implement` and `review` on Opus: better results, and more of
+  the subscription's usage limit or more cost per token. `pull-request.yml` gets `review-model`,
+  `fix-model` and `e2e-model`, which win over `model` for their stage. A caller that sets
+  `model` keeps it in every stage (docs/customization.md, Models).
+
 ## v1.7.2 — 2026-11-15
 
 - Fix: the review of a large PR often read only the first 2 KB of the diff. Above about 30 KB,
