@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.8.0 — 2026-11-16
+
 - Feat: patufet chooses the model of each stage: `claude-opus-5-5` for `implement` and `review`,
   `claude-sonnet-5-5` for `fix-review`, `fix-e2e`, `e2e` and `mention`. Until now an empty
   `model` left claude-code-action's default (Sonnet 5.5 on the current consumers), so a caller
