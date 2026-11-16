@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.8.1 — 2026-11-16
+
 - Fix: `mention` failed on every `@claude` comment on a pull request of a private repository,
   before Claude started (`git fetch … could not read Username`). On a PR the action fetches its
   branch itself, and the checkout keeps no credentials. git now gets them from `gh auth
