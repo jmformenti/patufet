@@ -22,7 +22,8 @@ working, since those workflows stay. To move to the single `pull-request` job, i
 2. Copy your values into its `with:`. `language`, `model`, `human-reviewer`, `max-review-cycles`,
    `java-version`, `node-version` and the `label-*` keep their names and are set once. `max-turns`,
    `allowed-tools`, `timeout-minutes` and `extra-instructions-file` take the stage as a prefix
-   (`review-`, `fix-`, `e2e-`), and the e2e hooks are `e2e-up-script` / `e2e-down-script`
+   (`review-`, `fix-`, `e2e-`), and so does a `model` that differed between stages
+   (`review-model`, `fix-model`, `e2e-model`); the e2e hooks are `e2e-up-script` / `e2e-down-script`
    ([customization.md](customization.md#pull-request)).
 3. Set `e2e: true` if you had the `e2e` job, `e2e: false` otherwise.
 4. Check the permissions of the job: `contents: write`, `pull-requests: write`, `issues: read`,

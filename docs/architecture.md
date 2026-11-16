@@ -144,7 +144,7 @@ Per issue, in Claude runs (each bounded by `max-turns`):
   fix runs).
 - 1 × e2e per `pass` (optional, default `max-turns` 200).
 
-Levers: `max-review-cycles`, `max-turns`, `model` (e.g. a cheaper model for review), keeping
+Levers: `max-review-cycles`, `max-turns`, `model` and the per-stage `review-model`, `fix-model`, `e2e-model` (defaults in [customization.md](customization.md#models)), keeping
 issues small (the plan gate is the real cost control), and not enabling e2e until the rest is
 stable. There is no hard budget per run in the action; `max-turns` is the only cap.
 
