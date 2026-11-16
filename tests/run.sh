@@ -612,6 +612,12 @@ for pair in review:review fix-review:fix e2e:e2e; do
   done < "$work/stage-inputs"
 done
 
+echo "# mention can fetch the PR's branch"
+wf_mention="$root/.github/workflows/mention.yml"
+has "mention: git gets credentials from gh" "run: gh auth setup-git" "$(cat "$wf_mention")"
+has "mention: gh has the job's token" 'GH_TOKEN: ${{ github.token }}' "$(cat "$wf_mention")"
+has "mention: the checkout keeps no credentials" "persist-credentials: false" "$(cat "$wf_mention")"
+
 echo "# each stage has patufet's own default model"
 for pair in implement:claude-opus-5-5 review:claude-opus-5-5 fix-review:claude-sonnet-5-5 e2e:claude-sonnet-5-5 mention:claude-sonnet-5-5; do
   stage=${pair%%:*}; model=${pair##*:}

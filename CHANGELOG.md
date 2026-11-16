@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Fix: `mention` failed on every `@claude` comment on a pull request of a private repository,
+  before Claude started (`git fetch … could not read Username`). On a PR the action fetches its
+  branch itself, and the checkout keeps no credentials. git now gets them from `gh auth
+  setup-git` with the job's read-only token, as in `fix-review`.
+
 ## v1.8.0 — 2026-11-16
 
 - Feat: patufet chooses the model of each stage: `claude-opus-5-5` for `implement` and `review`,
