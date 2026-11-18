@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Feat: `/plan-issue` settles the open decisions before writing the plan. It looks up the
+  facts in the code itself and asks only the decisions the issue leaves open, in rounds, each
+  with a recommended answer; a clear issue gets no questions. The plan gets a `### Decisions`
+  section, so the implementer does not stop on them with `to-refine`, and a re-run after
+  `to-refine` starts from the implementer's question. The method adapts Matt Pocock's
+  `grilling` skill (MIT). The command is a copied template: in a repository that already
+  uses patufet, copy `templates/.claude/commands/plan-issue.md` over
+  `.claude/commands/plan-issue.md`.
+
 ## v1.8.1 — 2026-11-16
 
 - Fix: `mention` failed on every `@claude` comment on a pull request of a private repository,
