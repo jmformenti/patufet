@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.9.0 — 2026-11-18
+
 - Feat: `/plan-issue` settles the open decisions before writing the plan. It looks up the
   facts in the code itself and asks only the decisions the issue leaves open, in rounds, each
   with a recommended answer; a clear issue gets no questions. The plan gets a `### Decisions`
