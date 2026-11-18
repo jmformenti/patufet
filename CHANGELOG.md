@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.9.1 — 2026-11-18
+
 - Fix: when the implementation restarts after `to-refine` (a new plan and the ready label),
   `implement` now removes `to-refine`. It stayed on the issue next to `in-progress`, and the
   final check took it as the run's question: a restart that ended without a PR passed instead
