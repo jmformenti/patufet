@@ -239,9 +239,17 @@ reported in the job log. The verdict labels have no placeholder: the agents do n
 ## `/plan-issue`
 
 `templates/.claude/commands/plan-issue.md` is a Claude Code slash command copied into the
-consumer repository by `bootstrap.sh`. It drafts the plan with you, and only on your explicit
-confirmation posts it (with the `<!-- patufet:plan -->` marker) and adds the ready label
-(`ready-to-implement`, or the `label-ready` of the caller).
+consumer repository by `bootstrap.sh`. It looks up the facts in the code itself and asks you
+only the decisions the issue leaves open, in rounds, each with a recommended answer; a clear
+issue gets no questions. It drafts the plan with a `### Decisions` section, so the implementer
+does not stop on them, and only on your explicit confirmation posts it (with the
+`<!-- patufet:plan -->` marker) and adds the ready label (`ready-to-implement`, or the
+`label-ready` of the caller). Run again after `to-refine`, it starts from the implementer's
+question. The rounds adapt the method of Matt Pocock's
+[`grilling`](https://github.com/mattpocock/skills) skill (MIT).
+
+`bootstrap.sh` does not overwrite an existing copy, so a new version of the command reaches
+an adopted repository only when you copy it there.
 
 ## Versioning
 

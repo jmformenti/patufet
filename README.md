@@ -80,8 +80,8 @@ reviewer). With the e2e stage enabled, `pass` also runs the live test. Open the 
 GitHub: its label tells you where it is.
 
 A draft PR and the issue labelled `to-refine` mean the implementer has a question: answer
-it in the issue and run `/plan-issue 42` again to update the plan; the implementer resumes
-from the draft. When the label is `pass` and CI is green, you merge.
+it by running `/plan-issue 42` again, which starts from that question and updates the plan;
+the implementer resumes from the draft. When the label is `pass` and CI is green, you merge.
 
 **3. Not convinced?**
 
