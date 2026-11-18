@@ -140,11 +140,13 @@ jobs:
             exit 1
           fi
 
+      # A restart after to-refine clears it: a stale to-refine would pass the PR check below
       - name: Mark the issue as in progress
         env:
           LABEL_READY: ${{ inputs.label-ready }}
           LABEL_IN_PROGRESS: ${{ inputs.label-in-progress }}
-        run: gh issue edit "$ISSUE_NUMBER" --remove-label "$LABEL_READY" --add-label "$LABEL_IN_PROGRESS"
+          LABEL_TO_REFINE: ${{ inputs.label-to-refine }}
+        run: gh issue edit "$ISSUE_NUMBER" --remove-label "$LABEL_READY" --remove-label "$LABEL_TO_REFINE" --add-label "$LABEL_IN_PROGRESS"
 
       # persist-credentials is false on checkout; git pushes use gh as credential helper
       - name: Configure git credentials for push
