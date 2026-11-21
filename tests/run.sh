@@ -132,6 +132,37 @@ has "extension appended verbatim" "Vue: {{ name }}" "$out"
 : > "$work/empty.md"
 lacks "empty extension adds no heading" "Project-specific" "$(TPL_a=x "$s/render-prompt.sh" "$work/t.md" "$work/empty.md" 2>/dev/null)"
 
+echo "# base-file.sh"
+export GH_STUB_CONTENTS_DIR="$work/contents"
+mkdir -p "$GH_STUB_CONTENTS_DIR/.github/patufet"
+printf 'Check the base layers\n' > "$GH_STUB_CONTENTS_DIR/.github/patufet/review.md"
+bf="$work/extra.md"
+: > "$GH_STUB_LOG"
+"$s/base-file.sh" octo/app abc123 .github/patufet/review.md "$bf"
+eq "the file as it is on the base commit" "Check the base layers" "$(cat "$bf")"
+has "asked on the base commit, raw" "gh api repos/octo/app/contents/.github/patufet/review.md?ref=abc123 -H Accept: application/vnd.github.raw+json" "$(cat "$GH_STUB_LOG")"
+"$s/base-file.sh" octo/app abc123 ./.github/patufet/review.md "$bf"
+eq "a leading ./ is dropped" "Check the base layers" "$(cat "$bf")"
+: > "$GH_STUB_LOG"
+"$s/base-file.sh" octo/app abc123 "docs/my notes.md" "$bf" 2> "$work/err"; rc=$?
+has "the path is URL-encoded" "contents/docs/my%20notes.md?ref=abc123" "$(cat "$GH_STUB_LOG")"
+eq "missing on the base: success" 0 "$rc"
+eq "missing on the base: no file" "absent" "$([ -e "$bf" ] && echo present || echo absent)"
+eq "missing on the base: no warning" "" "$(cat "$work/err")"
+echo stale > "$bf"
+"$s/base-file.sh" octo/app abc123 "" "$bf"
+eq "no path: no file, an old one removed" "absent" "$([ -e "$bf" ] && echo present || echo absent)"
+GH_STUB_CONTENTS_ERROR="HTTP 502: Bad Gateway" "$s/base-file.sh" octo/app abc123 .github/patufet/review.md "$bf" 2> "$work/err"; rc=$?
+eq "an API error: still a success" 0 "$rc"
+eq "an API error: no file" "absent" "$([ -e "$bf" ] && echo present || echo absent)"
+has "an API error: a warning" "::warning::Could not read .github/patufet/review.md on the base commit abc123" "$(cat "$work/err")"
+for wf in review fix-review e2e; do
+  wf_text=$(cat "$root/.github/workflows/$wf.yml")
+  has "$wf: extra instructions from the base commit" '"$TPL_DIR/scripts/base-file.sh" "$GITHUB_REPOSITORY" "$BASE_SHA" "$EXTRA_FILE" "$RUNNER_TEMP/extra-instructions.md"' "$wf_text"
+  has "$wf: renders the base commit's file" "prompts/$wf.md\" \"\$RUNNER_TEMP/extra-instructions.md\"" "$wf_text"
+  lacks "$wf: never renders the checkout's file" 'render-prompt.sh" "$TPL_DIR/prompts/'"$wf"'.md" "$EXTRA_FILE"' "$wf_text"
+done
+
 echo "# plan-section.sh"
 printf '## Plan\n' > "$work/plan.md"
 has "review with plan" $'<plan>\n## Plan\n</plan>' "$("$s/plan-section.sh" review 5 "$work/plan.md")"

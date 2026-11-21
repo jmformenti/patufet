@@ -37,6 +37,9 @@ GitHub masks the secrets it knows in them) and the **issue body** (only through 
 write, which you control). The reviewer's report then reaches `fix-review`, as it always has,
 and so does the e2e tester's report after a failed live test, which was written after reading pages
 rendered by the PR's code.
+The project's extra instructions (`.github/patufet/<stage>.md`) are trusted text, so review,
+fix-review and e2e read them from the PR's base commit (`scripts/base-file.sh`), never from the
+PR: otherwise a PR, written by an agent or by a person, could tell its own reviewer what to say.
 On a public repository, assume that a stranger can plant instructions in an issue body; the plan gate means you have read
 it before anything with write access runs.
 
@@ -115,7 +118,8 @@ run the code of the PR, keep `contents: read`.
 - A collaborator account compromise gives full control of the flow (as of any CI).
 - `max-turns` is the only cap: a misbehaving run can spend the whole budget of turns.
 - The e2e hook runs arbitrary shell from the PR branch on the runner — same trust level as
-  any CI job on that branch.
+  any CI job on that branch. It runs after the e2e instructions are fetched from the base
+  commit, but in the same job, so it could still change them, or the prompt, on disk.
 - `actions/checkout` and `anthropics/claude-code-action` are referenced by major tag, like
   consumers reference patufet; a compromised tag would reach every run. Tools fetched at run
   time (`@playwright/mcp`, the Playwright browser, actionlint in self-check) are pinned to

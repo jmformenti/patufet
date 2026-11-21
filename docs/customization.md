@@ -227,6 +227,10 @@ is left as it is. Defaults:
 | review | `.github/patufet/review.md` | the project review checklist (layers, wrappers, authz rules, ground-truth docs) |
 | e2e | `.github/patufet/e2e.md` | the always-check paths of the app |
 
+On a pull request (review, fix-review, fix-e2e, e2e) the file is read as it is on the PR's base
+commit, not from the PR: a PR cannot rewrite the instructions of the agents that review and fix
+it, and a change to one of these files takes effect once it is merged.
+
 Keep them short and factual; the agent already reads `CLAUDE.md` / `README`. Never put
 instructions there that contradict the base prompt's output contract (markers, structured
 result, labels) — the deterministic steps depend on it.
