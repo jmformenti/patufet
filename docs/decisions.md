@@ -85,7 +85,8 @@ running app). Since decision 11 those two agents no longer label, and they lost 
 **Decision.** Plans come from collaborators only; review reports and inline comments from
 collaborators or the automation bots (`scripts/trusted-comments.jq`). The plan gate means a
 human has read anything derived from an issue body before an agent with write access acts
-on it. See [security.md](security.md).
+on it. See [security.md](security.md). The project's extra instructions are read from the PR's base commit, never
+from the PR, so a PR cannot instruct the agents that review and fix it.
 
 ## 9. Third-party actions pinned by major tag, tools by exact version
 

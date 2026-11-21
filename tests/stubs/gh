@@ -13,6 +13,12 @@ case "$1 ${2:-}" in
         # GH_STUB_PERMISSION: the permission to answer; unset = not a collaborator (404)
         if [ -z "${GH_STUB_PERMISSION:-}" ]; then echo "HTTP 404: Not Found" >&2; exit 1; fi
         printf '{"permission":"%s"}' "$GH_STUB_PERMISSION" ;;
+      */contents/*)
+        # GH_STUB_CONTENTS_DIR/<path>: the file on the asked ref; missing = 404
+        if [ -n "${GH_STUB_CONTENTS_ERROR:-}" ]; then echo "$GH_STUB_CONTENTS_ERROR" >&2; exit 1; fi
+        f=${2#*/contents/}; f=${f%%\?*}
+        if [ ! -f "${GH_STUB_CONTENTS_DIR:?}/$f" ]; then echo "gh: Not Found (HTTP 404)" >&2; exit 1; fi
+        cat "$GH_STUB_CONTENTS_DIR/$f" ;;
       */actions/runs/*/jobs*)
         # GH_STUB_JOBS_DIR/<run id>.json; a missing file is an error, like an unreadable run
         id=${2#*/actions/runs/}; id=${id%%/*}

@@ -159,12 +159,16 @@ jobs:
           TPL_branch: ${{ github.event.pull_request.head.ref }}
           TPL_language: ${{ inputs.language }}
           EXTRA_FILE: ${{ inputs.extra-instructions-file }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
+          # From the base commit, not the PR branch the agent pushes to: a PR does not
+          # rewrite its fixer's instructions
+          "$TPL_DIR/scripts/base-file.sh" "$GITHUB_REPOSITORY" "$BASE_SHA" "$EXTRA_FILE" "$RUNNER_TEMP/extra-instructions.md"
           TPL_review_report="$("$TPL_DIR/scripts/find-review-report.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER")"; export TPL_review_report
           TPL_inline_comments="$("$TPL_DIR/scripts/find-inline-comments.sh" "$GITHUB_REPOSITORY" "$PR_NUMBER")"
           [ -n "$TPL_inline_comments" ] || TPL_inline_comments="(none)"
           export TPL_inline_comments
-          "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/fix-review.md" "$EXTRA_FILE" \
+          "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/fix-review.md" "$RUNNER_TEMP/extra-instructions.md" \
             | "$TPL_DIR/scripts/github-output.sh" text
 
       # The action denies test runners, package managers and interpreters on a PR whose

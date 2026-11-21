@@ -181,11 +181,14 @@ jobs:
           TPL_language: ${{ inputs.language }}
           TPL_human_reviewer: ${{ inputs.human-reviewer != '' && format('@{0}', inputs.human-reviewer) || 'none is configured, so mention nobody' }}
           EXTRA_FILE: ${{ inputs.extra-instructions-file }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
+          # From the base commit, not the checkout: a PR does not rewrite its reviewer's instructions
+          "$TPL_DIR/scripts/base-file.sh" "$GITHUB_REPOSITORY" "$BASE_SHA" "$EXTRA_FILE" "$RUNNER_TEMP/extra-instructions.md"
           TPL_plan_section="$(cat "$RUNNER_TEMP/plan_section.md")"; export TPL_plan_section
           TPL_diff_section="$(cat "$RUNNER_TEMP/diff_section.md")"; export TPL_diff_section
           TPL_ci_section="$("$TPL_DIR/scripts/ci-section.sh" "$GITHUB_REPOSITORY" "$RUNNER_TEMP/ci-result.json")"; export TPL_ci_section
-          "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/review.md" "$EXTRA_FILE" \
+          "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/review.md" "$RUNNER_TEMP/extra-instructions.md" \
             | "$TPL_DIR/scripts/github-output.sh" text
 
       # Direct prompt instead of the code-review plugin: the plugin spawns

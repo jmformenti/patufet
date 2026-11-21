@@ -141,6 +141,15 @@ jobs:
           TEMPLATE_REPO: ${{ job.workflow_repository }}
           TEMPLATE_SHA: ${{ job.workflow_sha }}
 
+      # From the base commit, not the checkout: a PR does not rewrite its tester's
+      # instructions. Before the e2e-up hook, which is the PR's code (docs/security.md)
+      - name: Fetch the extra instructions from the base commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXTRA_FILE: ${{ inputs.extra-instructions-file }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: '"$TPL_DIR/scripts/base-file.sh" "$GITHUB_REPOSITORY" "$BASE_SHA" "$EXTRA_FILE" "$RUNNER_TEMP/extra-instructions.md"'
+
       # e2e only starts on a `pass`. A re-run finds the `fail` of the previous
       # attempt, which would make a passing run say that the PR is not ready: put
       # `pass` back. Not if the PR has moved on: its newer review owns the label.
@@ -208,13 +217,12 @@ jobs:
           TPL_repository: ${{ github.repository }}
           TPL_language: ${{ inputs.language }}
           TPL_run: ${{ github.run_id }}.${{ github.run_attempt }}
-          EXTRA_FILE: ${{ inputs.extra-instructions-file }}
         run: |
           TPL_e2e_env="$(sed -E 's/^([^=]+)=(.*)$/- \1: \2/' "$PATUFET_E2E_ENV")"
           [ -n "$TPL_e2e_env" ] || TPL_e2e_env="(the up-script exported nothing)"
           export TPL_e2e_env
           TPL_plan_section="$(cat "$RUNNER_TEMP/plan_section.md")"; export TPL_plan_section
-          "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/e2e.md" "$EXTRA_FILE" \
+          "$TPL_DIR/scripts/render-prompt.sh" "$TPL_DIR/prompts/e2e.md" "$RUNNER_TEMP/extra-instructions.md" \
             | "$TPL_DIR/scripts/github-output.sh" text
 
       - name: Live functional test with Claude + Playwright MCP
