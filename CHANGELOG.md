@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Feat: the project's setup, for any stack. When `.github/patufet/setup/action.yml` exists (a
+  composite action with the setup steps of your CI: runtimes, tools, dependencies), implement,
+  fix-review, fix-e2e and e2e run it before the agent (e2e: before the e2e-up hook). In
+  fix-review it is the PR's version and runs only when the PR's author is trusted; in e2e, the
+  PR's; in implement, the default branch's. It runs before the git credentials, without
+  `GH_TOKEN`. The job summary has a `Project setup` line. See docs/customization.md
+  ("Preparing the environment") and the example in `templates/.github/patufet/setup/`.
+- Deprecated: `java-version` and `node-version`. They still work, before the setup action, with
+  a warning; they will be removed. docs/migration.md shows the action that replaces them (#44).
+- The review no longer expects you to read `go.sum` and `gradle.lockfile`, like the other lockfiles.
+
 ## v1.9.3 — 2026-11-21
 
 - Fix (security): review, fix-review, fix-e2e and e2e read the project's extra instructions

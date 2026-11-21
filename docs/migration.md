@@ -7,6 +7,31 @@ text change, a test) and run one full cycle before trusting it with real work.
 
 ## Upgrading
 
+### From `java-version` / `node-version` to the project setup action (v1.10.0)
+
+The two inputs are deprecated and will be removed: a caller that still passes them will then
+fail to start. Before that:
+
+1. Create `.github/patufet/setup/action.yml` with the same versions
+   ([customization.md](customization.md#preparing-the-environment)):
+   ```yaml
+   name: Project setup for patufet
+   description: Runtimes, tools and dependencies for the patufet agents
+   runs:
+     using: composite
+     steps:
+       - uses: actions/setup-java@v6
+         with:
+           distribution: temurin
+           java-version: "21"
+       - uses: actions/setup-node@v7
+         with:
+           node-version: "22"
+           package-manager-cache: false
+   ```
+2. Remove `java-version` and `node-version` from both jobs (`implement` and `pull-request`) of
+   `.github/workflows/patufet.yml`.
+
 - On `@v1`: nothing to do for compatible releases; read `CHANGELOG.md` for new inputs.
 - Major bump: the changelog lists the renamed inputs / new files; update the caller and the
   extension files, then change `@v1` → `@v2`.

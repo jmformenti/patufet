@@ -31,7 +31,7 @@ diff_path, out = sys.argv[1], sys.argv[2]
 MAX_LINES = int(os.environ.get("PATUFET_DIFF_PART_LINES", "600"))
 MAX_BYTES = int(os.environ.get("PATUFET_DIFF_PART_BYTES", "20000"))
 SKIP = re.compile(
-    r"(^|/)(package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|[^/]*\.lock)$"
+    r"(^|/)(package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|go\.sum|gradle\.lockfile|[^/]*\.lock)$"
     r"|\.min\.[A-Za-z0-9]+$|\.map$|\.snap$"
 )
 

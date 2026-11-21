@@ -36,7 +36,7 @@ Common to `implement`, `review`, `fix-review`, `e2e`:
 |---|---|---|
 | `issue-number` | *(required)* | The caller passes `fromJSON(inputs.issue \|\| github.event.issue.number)`. |
 | `branch-prefix` | `agent/issue-` | Branch = prefix + issue number. Also used by review/e2e to find the linked issue. |
-| `java-version`, `node-version` | `''` | Set up that version on the runner (`actions/setup-java` with Temurin, `actions/setup-node`) so that it matches CI. Empty = what `ubuntu-latest` brings. Also on `fix-review`. |
+| `java-version`, `node-version` | `''` | **Deprecated, to be removed**: use the [project setup action](#preparing-the-environment). Set up that version on the runner (`actions/setup-java` with Temurin, `actions/setup-node`). Also on `fix-review`. |
 | `label-ready`, `label-in-progress`, `label-to-refine`, `label-blocked` | `ready-to-implement`, `in-progress`, `to-refine`, `blocked` | See [Renaming the labels](#renaming-the-labels). |
 
 `review`:
@@ -94,7 +94,7 @@ same defaults (`tests/run.sh` checks it). The rule for the names:
 | `model` | `model` of every stage whose own input below is empty |
 | `review-model`, `fix-model`, `e2e-model` | `model` of `review`, `fix-review` (and `fix-e2e`), `e2e`; empty = `model` |
 | `ci-wait-timeout-minutes` | `review` |
-| `max-review-cycles`, `java-version`, `node-version` | `fix-review` (and `fix-e2e`, which is the same workflow) |
+| `max-review-cycles`, `java-version`, `node-version` (the last two deprecated) | `fix-review` (and `fix-e2e`, which is the same workflow) |
 | `install-playwright`, `playwright-mcp-version` | `e2e` |
 | `review-extra-instructions-file`, `review-max-turns`, `review-allowed-tools`, `review-timeout-minutes` | `review`, without the prefix |
 | `fix-extra-instructions-file`, `fix-max-turns`, `fix-allowed-tools`, `fix-timeout-minutes` | `fix-review` and `fix-e2e`, without the prefix |
@@ -243,6 +243,50 @@ If you fork and edit `prompts/*.md`: `{{issue}}`, `{{pr}}`, `{{repository}}`, `{
 `{{label_in_progress}}`, `{{label_to_refine}}`, `{{human_reviewer}}`. Each workflow sets the
 ones its prompt uses (`tests/run.sh` checks it). Unknown placeholders render empty and are
 reported in the job log. The verdict labels have no placeholder: the agents do not label.
+
+## Preparing the environment
+
+The runner (`ubuntu-latest`) brings common tools, not your project's runtime or dependencies.
+Put the setup steps of your CI in a composite action at **`.github/patufet/setup/action.yml`**
+(a fixed path: `uses:` takes no expression). patufet runs it, when it exists:
+
+| Stage | When | Which version |
+|---|---|---|
+| implement | after the checkout, before the git credentials and the agent | the branch implement runs on: the default one, or the one a `workflow_dispatch` chose |
+| fix-review, fix-e2e | same | the PR's, when its author is `claude[bot]` or has write access; otherwise not at all (the agent cannot run the PR's code then) |
+| e2e | before the e2e-up hook | the PR's, like the hook |
+
+`review` runs no code, so no setup. The job summary has a `Project setup` line: what ran and how
+it ended, or why nothing did. A failed setup fails the stage before the agent starts (implement
+marks the issue `blocked`).
+
+```yaml
+# .github/patufet/setup/action.yml: Python with uv
+name: Project setup for patufet
+description: Runtimes, tools and dependencies for the patufet agents
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v6
+      with:
+        enable-cache: false
+    - run: uv sync --locked
+      shell: bash
+```
+
+More examples (Node, Java) in
+[`templates/.github/patufet/setup/action.yml`](../templates/.github/patufet/setup/action.yml).
+
+- **No dependency cache.** These jobs can push and comment: a poisoned cache entry would run with
+  their permissions, and implement writes in the default branch's scope, which every PR reads.
+  `setup-node` and `setup-uv` may turn their cache on by themselves; turn it off. Your CI can keep
+  its own cache.
+- The action gets no `GH_TOKEN` in its environment and no repository secret. A composite action
+  can still read `github.token`, so treat it as code with the job's permissions.
+- Your CI can reuse it (`uses: ./.github/patufet/setup`), if it does not need a cache.
+
+`java-version` / `node-version` still work and run before the action, with a deprecation warning;
+they will be removed (see [migration.md](migration.md)).
 
 ## `/plan-issue`
 

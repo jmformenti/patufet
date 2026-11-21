@@ -163,6 +163,48 @@ for wf in review fix-review e2e; do
   lacks "$wf: never renders the checkout's file" 'render-prompt.sh" "$TPL_DIR/prompts/'"$wf"'.md" "$EXTRA_FILE"' "$wf_text"
 done
 
+echo "# project-setup.sh"
+ps="$work/proj"; mkdir -p "$ps/.github/patufet"
+eq "no action: no setup" "run=false note=none (no $ps/.github/patufet/setup/action.yml) " "$("$s/project-setup.sh" "$ps/.github/patufet/setup" | tr '\n' ' ')"
+mkdir -p "$ps/.github/patufet/setup"; printf 'runs:\n  using: composite\n' > "$ps/.github/patufet/setup/action.yml"
+eq "an action: setup" "run=true note=$ps/.github/patufet/setup " "$("$s/project-setup.sh" "$ps/.github/patufet/setup" | tr '\n' ' ')"
+eq "a trusted author: setup" "run=true " "$("$s/project-setup.sh" "$ps/.github/patufet/setup" false | head -1 | tr '\n' ' ')"
+eq "an untrusted author: no setup" "run=false note=skipped: the PR's author is not trusted, so the agent cannot run its code " "$("$s/project-setup.sh" "$ps/.github/patufet/setup" true | tr '\n' ' ')"
+eq "an unknown trust value: no setup" "run=false " "$("$s/project-setup.sh" "$ps/.github/patufet/setup" "" | head -1 | tr '\n' ' ')"
+mv "$ps/.github/patufet/setup/action.yml" "$ps/.github/patufet/setup/action.yaml"
+eq "action.yaml counts too" "run=true " "$("$s/project-setup.sh" "$ps/.github/patufet/setup" | head -1 | tr '\n' ' ')"
+line_of() { grep -n -F -- "$2" "$1" | head -1 | cut -d: -f1; }  # line_of <file> <text>
+before() {  # before <name> <file> <first text> <later text>
+  if [ "$(line_of "$2" "$3")" -lt "$(line_of "$2" "$4")" ]; then pass "$1"; else fail "$1"; fi
+}
+for wf in implement fix-review e2e; do
+  f="$root/.github/workflows/$wf.yml"
+  has "$wf: runs the project's setup action" "uses: ./.github/patufet/setup" "$(cat "$f")"
+  has "$wf: only when project-setup.sh says so" "if: steps.setup-plan.outputs.run == 'true'" "$(cat "$f")"
+  has "$wf: the summary says what the setup did" '"Project setup: ${SETUP:-not reached}"' "$(cat "$f")"
+  before "$wf: setup after the checkout" "$f" "uses: actions/checkout" "uses: ./.github/patufet/setup"
+done
+for wf in implement fix-review; do
+  f="$root/.github/workflows/$wf.yml"
+  before "$wf: setup before the git credentials" "$f" "uses: ./.github/patufet/setup" "gh auth setup-git"
+  eq "$wf: setup without the job's token" 'GH_TOKEN: ""' "$(awk '/uses: .\/.github\/patufet\/setup/ {f=1; next} f && /GH_TOKEN/ {gsub(/^ +/, ""); print; exit} f && /- name:/ {exit}' "$f")"
+  before "$wf: deprecated inputs before the action" "$f" "uses: actions/setup-node" "uses: ./.github/patufet/setup"
+  has "$wf: reports the deprecated inputs" 'scripts/deprecated-inputs.sh" "$JAVA_VERSION" "$NODE_VERSION"' "$(cat "$f")"
+done
+f="$root/.github/workflows/fix-review.yml"
+has "fix-review: an untrusted author skips the setup" "RESTRICT: \${{ steps.trust.outputs.restrict || 'true' }}" "$(cat "$f")"
+before "fix-review: trust decided before the setup" "$f" "id: trust" "id: setup-plan"
+f="$root/.github/workflows/e2e.yml"
+before "e2e: setup before the up hook" "$f" "uses: ./.github/patufet/setup" "name: Start the application"
+
+echo "# deprecated-inputs.sh"
+eq "neither: nothing" "" "$("$s/deprecated-inputs.sh" "" "" 2>&1)"
+eq "java only: the summary line" "Deprecated inputs: java-version → .github/patufet/setup/action.yml" "$("$s/deprecated-inputs.sh" 21 "" 2>/dev/null)"
+eq "node only: the summary line" "Deprecated inputs: node-version → .github/patufet/setup/action.yml" "$("$s/deprecated-inputs.sh" "" 22 2>/dev/null)"
+eq "both: the summary line" "Deprecated inputs: java-version, node-version → .github/patufet/setup/action.yml" "$("$s/deprecated-inputs.sh" 21 22 2>/dev/null)"
+has "both: a warning annotation" "::warning::Deprecated input(s) java-version, node-version: move them to .github/patufet/setup/action.yml" "$("$s/deprecated-inputs.sh" 21 22 2>&1 >/dev/null)"
+eq "run-summary leaves an empty line out" "| A | b |" "$(GITHUB_STEP_SUMMARY=/dev/stdout "$s/run-summary.sh" x "" "A: b" "" | tail -1)"
+
 echo "# plan-section.sh"
 printf '## Plan\n' > "$work/plan.md"
 has "review with plan" $'<plan>\n## Plan\n</plan>' "$("$s/plan-section.sh" review 5 "$work/plan.md")"
@@ -398,6 +440,9 @@ eq "every part stays in the parts directory" "" "$(jq -r --arg dir "$d/parts/" '
 eq "file names: renamed by git quoting, deleted, odd" $'src/app.js\npackage-lock.json\nimg/logo.png\ndocs/café notes.md\nold.txt\nx/../../etc/evil' \
   "$(jq -r 'reduce .[].file as $f ([]; if any(.[]; . == $f) then . else . + [$f] end) | .[]' "$d/index.json")"
 eq "lockfiles and binaries are skipped, the rest is not" "package-lock.json img/logo.png" "$(jq -r '[.[] | select(.skip) | .file] | join(" ")' "$d/index.json")"
+for f in go.sum gradle.lockfile uv.lock poetry.lock src/main.py; do printf 'diff --git a/%s b/%s\n--- a/%s\n+++ b/%s\n@@ -1 +1 @@\n-a\n+b\n' "$f" "$f" "$f" "$f"; done > "$work/stacks.diff"
+"$s/split-diff.sh" "$work/stacks.diff" "$work/stacks" > /dev/null
+eq "lockfiles of other stacks are skipped too" "go.sum gradle.lockfile uv.lock poetry.lock" "$(jq -r '[.[] | select(.skip) | .file] | join(" ")' "$work/stacks/index.json")"
 eq "added / removed per part, headers not counted" "+2-1 +1-1 +4-0 +8-0 +0-1" \
   "$(jq -r '[.[] | select(.file == "src/app.js" or .file == "docs/café notes.md" or .file == "old.txt") | "+\(.added)-\(.removed)"] | join(" ")' "$d/index.json")"
 eq "the header goes with the first hunk" "@@ -0,0 +1,12 @@" "$(sed -n 6p "$d/parts/004-docs_caf_notes.md.1.diff")"

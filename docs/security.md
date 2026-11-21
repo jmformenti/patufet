@@ -60,6 +60,14 @@ same repository, and a PR from a fork gets no secrets. The other stages keep the
 default: review and e2e only allow `gh` subcommands, and the e2e hooks run in a workflow step,
 not in the agent.
 
+The project setup action (`.github/patufet/setup/action.yml`) follows the same rule: in
+fix-review it is the PR's version and runs only for those authors (`scripts/project-setup.sh`);
+in e2e it is the PR's, like the e2e hooks; in implement, the branch it runs on (the default one,
+or the one a collaborator chose for a `workflow_dispatch`). It runs before the
+git credentials, without `GH_TOKEN` in its environment, but a composite action can read
+`github.token`. It should not use a dependency cache: a cache entry restored in these jobs runs
+with their permissions.
+
 ## Tokens
 
 - `CLAUDE_CODE_OAUTH_TOKEN` / `ANTHROPIC_API_KEY`: repository secrets. The caller passes only

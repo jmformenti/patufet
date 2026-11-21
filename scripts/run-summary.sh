@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Append a short summary of a Claude run to the job summary: outcome, turns,
 # duration and the cost reported by Claude Code, plus any extra "Key: value"
-# lines (verdict, cycle...). With an OAuth token the cost is what the same run
+# lines (verdict, cycle...); an empty one is left out. With an OAuth token the cost is what the same run
 # would cost on the API, not what the subscription is charged.
 #
 # Usage: run-summary.sh <stage> <execution-file-or-empty> ["Key: value" ...]
@@ -31,6 +31,7 @@ out="${GITHUB_STEP_SUMMARY:-/dev/stdout}"
     echo "| Claude run | did not run |"
   fi
   for line in "$@"; do
+    [ -n "$line" ] || continue  # an optional line that has nothing to say
     echo "| ${line%%:*} | ${line#*: } |"
   done
 } >> "$out"

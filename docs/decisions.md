@@ -258,3 +258,14 @@ requests (`scripts/detect-pr-ci.sh`).
 - CI outside GitHub Actions is no longer waited for. With `ci-checks` it could be, with limits.
 - A job skipped on the commit counts as passed, but the reviewer is told that it did not run.
 
+
+## 13. The project's setup is a composite action in the consumer repository
+
+**Context.** patufet could set up Java and Node only (`java-version`, `node-version`), so any other
+stack (Python with uv, Go...) had the agent install its tools, spending turns, and the e2e hook
+got nothing. **Decision.** The consumer writes its CI's setup steps in a composite action at a
+fixed path, `.github/patufet/setup/action.yml`, run before the agent (and before the e2e hook):
+patufet knows no technology, and one input per language would never cover tools like uv. The
+path is fixed because `uses:` takes no expression. It is the PR's version only where the PR's
+code runs anyway (fix-review for trusted authors, e2e). `java-version` / `node-version` are
+deprecated and go once the consumers have moved.

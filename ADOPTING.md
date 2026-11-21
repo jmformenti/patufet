@@ -91,8 +91,16 @@ checks for the secret. Read its output: the final "Next steps" block and any `WA
   [docs/customization.md](docs/customization.md#the-ci-aware-review).
 - Build and test commands: the agents reproduce the CI workflows and fall back to `AGENTS.md`,
   `CLAUDE.md` or the README, so check that those describe them correctly.
-- `java-version`, `node-version` (in both jobs, `implement` and `pull-request`): set them if CI pins a version
-  that differs from what `ubuntu-latest` brings.
+- Do not set `java-version` / `node-version`: they are deprecated.
+
+`.github/patufet/setup/action.yml` (create it only when the project needs something
+`ubuntu-latest` lacks: a runtime version, uv, the dependencies): a composite action with the
+setup steps of the project's CI (`actions/setup-java`, `actions/setup-node`, `astral-sh/setup-uv`,
+`uv sync --locked`, `npm ci`...), without their dependency cache (`package-manager-cache: false`,
+`enable-cache: false`, no `cache:`). Start from
+[the example](templates/.github/patufet/setup/action.yml);
+[docs/customization.md](docs/customization.md#preparing-the-environment) has the rules. The
+agents then do not have to install anything, so do not tell them to in `implement.md`.
 - Keep `language` and `human-reviewer` as the bootstrap set them.
 
 `.github/patufet/implement.md` and `.github/patufet/review.md`: project knowledge the
