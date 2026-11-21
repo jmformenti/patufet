@@ -37,7 +37,7 @@ jq -r --argjson size "$(wc -c < "$out/full.diff")" '
     else
       "The diff of this PR is \(($size / 1024 * 10 | round) / 10) KB in \(count([.[].file] | unique | length; "file")), cut into \(count(length; "part")). Each part is a file you can read whole with one `Read` call.",
       "",
-      "**Read every part in the table below, in order, with `Read`, before you write any comment.** Do not rely on `gh pr diff`: Claude Code shows only a preview of a large output. A step after you counts the parts you read and reports any you missed on the PR.",
+      "**Read every part in the table below, in order, with `Read` (one call per part), before you write any comment.** Do not rely on `gh pr diff` or on `cat` of several parts: Claude Code shows only a preview of a large output. A step after you counts the parts you read and reports any you missed on the PR.",
       "",
       "| Part | File | Lines |",
       "|---|---|---|",

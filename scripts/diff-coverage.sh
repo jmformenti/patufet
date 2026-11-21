@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # How much of the diff the reviewer read: the parts of diff-section.sh (not marked
-# skip) that a Read call of the Claude run opened. With a PR number and some parts
-# left unread, it also says so on the PR. It never changes the verdict: the person
-# who merges decides.
+# skip) that a Read call of the Claude run opened, or a Bash command (cat, sed...)
+# named, by path or by file name. A Bash read counts only when the parts it names fit
+# together in the output Claude Code shows whole (PATUFET_BASH_OUTPUT_BYTES, 30000 by
+# default): a longer output is cut. A call whose result is an error or a permission
+# denial reads nothing. With a PR number and some parts left unread, it also says so
+# on the PR. It never changes the verdict: the person who merges decides.
 #
 # A run without an execution file (the agent did not finish) reports nothing:
 # apply-review-verdict.sh already says there is no verdict.
@@ -20,13 +23,27 @@ if [ ! -s "$index" ] || [ -z "$exec_file" ] || [ ! -f "$exec_file" ]; then
   exit 0
 fi
 
-# Paths given to Read; jq fails on an unreadable file, which then counts as no reads
-reads=$(jq -c '[.[]? | select(.type == "assistant") | .message.content[]?
-                | select(.type == "tool_use" and .name == "Read") | .input.file_path // empty]' \
-          "$exec_file" 2>/dev/null) || reads='[]'
+bash_limit="${PATUFET_BASH_OUTPUT_BYTES:-30000}"
 
-result=$(jq -c --argjson reads "$reads" '
-  map(select(.skip | not))
+# The calls that succeeded: {name, path} for Read, {name, command} for Bash. jq fails
+# on an unreadable file, which then counts as no reads
+calls=$(jq -c '
+  ([.[]? | select(.type == "user") | .message.content[]? | select(.type == "tool_result" and .is_error == true) | .tool_use_id]
+   + [.[]? | select(.type == "result") | .permission_denials[]? | .tool_use_id]) as $failed
+  | [.[]? | select(.type == "assistant") | .message.content[]?
+     | select(.type == "tool_use" and (.id as $id | any($failed[]; . == $id) | not))
+     | if .name == "Read" then {name, path: (.input.file_path // empty)}
+       elif .name == "Bash" then {name, command: (.input.command // empty)}
+       else empty end]' "$exec_file" 2>/dev/null) || calls='[]'
+
+result=$(jq -c --argjson calls "$calls" --argjson limit "$bash_limit" '
+  map(select(.skip | not)) as $parts
+  # The parts a Bash command names, if they fit together in its output
+  | ([$calls[] | select(.name == "Bash") | .command as $c
+      | [$parts[] | select(.path as $p | ($c | contains($p)) or ($c | contains($p | split("/") | last)))]
+      | select(map(.bytes) | add <= $limit) | .[].path]) as $bash
+  | ([$calls[] | select(.name == "Read") | .path] + $bash) as $reads
+  | $parts
   | map(. as $p | .read = any($reads[]; . == $p.path))
   | {read: map(select(.read)) | length, total: length,
      missing: map(select(.read | not) | .file) | unique}' "$index")

@@ -130,7 +130,10 @@ where it starts, so the inline comments land on the right line. The prompt lists
 Lockfiles (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `*.lock`), minified or generated
 files (`*.min.*`, `*.map`, `*.snap`) and binaries are listed but not expected to be read.
 
-After the review, `scripts/diff-coverage.sh` counts the parts the agent opened. The job summary
+After the review, `scripts/diff-coverage.sh` counts the parts the agent opened: with `Read`, or
+with a Bash command such as `cat` that names them, when those parts fit together in the 30 000
+characters of Bash output Claude Code shows whole (a call that failed or was denied reads
+nothing). The job summary
 shows `Diff read: X of Y parts`. When some part was not read, a comment on the PR names its
 files: **the verdict does not change**, it only tells the person who merges what to check by hand.
 An `allowed-tools` without `Read` reads nothing, so every review gets that comment.

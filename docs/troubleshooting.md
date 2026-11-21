@@ -85,7 +85,8 @@ of that run, or push again. Adding a verdict label does not repeat the review: i
 The reviewer did not open every part of the diff (see
 [How the review reads the diff](customization.md#how-the-review-reads-the-diff)), so its verdict
 says nothing about the files listed. Usual causes: it ran out of `max-turns` or `timeout-minutes`
-on a very large PR (the job summary shows the turns), or the caller's `allowed-tools` lacks `Read`.
+on a very large PR (the job summary shows the turns), or the caller's `allowed-tools` lacks `Read`, or it
+read several parts with one `cat` whose output was too long to be shown whole.
 Review those files by hand, or push again for a new review.
 
 **The review waits until `ci-wait-timeout-minutes` on every PR.**

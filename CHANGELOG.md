@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Fix: the diff coverage of the review also counts the parts the agent read with a Bash command
+  (`cat`, `sed`...) that names them, by path or file name, when those parts fit together in the
+  Bash output Claude Code shows whole (30 000 characters). A review that read every part with
+  `cat` got a false "read 0 of N parts" comment. A call that failed or was denied reads nothing,
+  with `Read` too. The prompt now asks for one `Read` per part, not a `cat` of several (#38).
+
 ## v1.9.1 — 2026-11-18
 
 - Fix: when the implementation restarts after `to-refine` (a new plan and the ready label),
