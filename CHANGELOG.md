@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.9.2 — 2026-11-21
+
 - Fix: the diff coverage of the review also counts the parts the agent read with a Bash command
   (`cat`, `sed`...) that names them, by path or file name, when those parts fit together in the
   Bash output Claude Code shows whole (30 000 characters). A review that read every part with
