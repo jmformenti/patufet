@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.10.0 — 2026-11-21
+
 - Feat: the project's setup, for any stack. When `.github/patufet/setup/action.yml` exists (a
   composite action with the setup steps of your CI: runtimes, tools, dependencies), implement,
   fix-review, fix-e2e and e2e run it before the agent (e2e: before the e2e-up hook). In
