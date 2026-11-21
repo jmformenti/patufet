@@ -419,6 +419,31 @@ eq "partial read" "read=2 total=6 " "$(cov 7 3)"
 has "partial read: a comment names the files not read" 'gh pr comment 7 --body ℹ️ patufet: review cycle 3 read 2 of 6 parts of the diff. Not read: `docs/café notes.md`, `old.txt`, `src/app.js`, `x/../../etc/evil`. The verdict does not take them into account: check those files by hand.' "$(cat "$GH_STUB_LOG")"
 execution
 eq "nothing read" "read=0 total=6 " "$(cov 7 3)"
+bash_exec() {  # bash_exec <result-json> <command>...: a Claude run whose Bash calls ran those commands
+  local result="$1"; shift
+  jq -n --argjson result "$result" '[{type: "system"},
+    {type: "assistant", message: {content: ($ARGS.positional | to_entries | map({type: "tool_use", id: "t\(.key)", name: "Bash", input: {command: .value}}))}},
+    {type: "user", message: {content: [{type: "tool_result", tool_use_id: "t9", is_error: true, content: "boom"}]}},
+    ({type: "result"} + $result)]' --args "$@" > "$work/exec.json"
+}
+base() { basename "$(part "$1")"; }
+bash_exec '{}' "cat $(part 0)" "cd $(dirname "$(part 0)") && cat $(base 4)"
+eq "Bash cat by path or by file name counts" "read=2 total=6 " "$(cov)"
+bash_exec '{"permission_denials": [{"tool_name": "Bash", "tool_use_id": "t0"}]}' "cat $(part 0)" "cat $(part 4)"
+eq "a denied Bash call reads nothing" "read=1 total=6 " "$(cov)"
+bash_exec '{}' x x x x x x x x x "cat $(part 0)"
+eq "a Bash call with an error result reads nothing" "read=0 total=6 " "$(cov)"
+eq "Bash parts that fit in the output count" "read=2 total=6 " "$(bash_exec '{}' "cat $(part 0) $(part 4)"; cov)"
+eq "a glob after a part name does not count" "read=0 total=6 " "$(bash_exec '{}' "cat $(part 0)*" "cat x$(base 4)"; cov)"
+skipped=$(jq -r '[.[] | select(.skip)][0].path' "$idx")
+eq "a skipped part counts in the size of a Bash output" "read=0 total=6 " "$(bash_exec '{}' "cat $(part 0) $skipped"; PATUFET_BASH_OUTPUT_BYTES=$(jq --arg s "$skipped" '[.[0].bytes, (.[] | select(.path == $s) | .bytes)] | add - 1' "$idx") cov)"
+jq -n --arg a "$(part 0)" --arg b "$(part 4)" --arg c "$(part 5)" '[
+  {type: "assistant", message: {content: [{type: "tool_use", id: "r1", name: "Read", input: {file_path: $a}},
+    {type: "tool_use", id: "r2", name: "Read", input: {file_path: $b}}, {type: "tool_use", id: "r3", name: "Read", input: {file_path: $c}}]}},
+  {type: "user", message: {content: [{type: "tool_result", tool_use_id: "r1", is_error: true}, {type: "tool_result", tool_use_id: "r3", is_error: false}]}},
+  {type: "result", permission_denials: [{tool_name: "Read", tool_use_id: "r2"}]}]' > "$work/exec.json"
+eq "a failed or denied Read reads nothing; its sibling does" "read=1 total=6 " "$(cov)"
+eq "Bash parts too large together for the output do not count" "read=0 total=6 " "$(bash_exec '{}' "cat $(part 0) $(part 4)"; PATUFET_BASH_OUTPUT_BYTES=$(jq '[.[0].bytes, .[4].bytes] | add - 1' "$idx") cov)"
 : > "$GH_STUB_LOG"
 eq "no execution file: nothing reported" "" "$("$s/diff-coverage.sh" "$idx" "$work/missing.json" 7 3)"
 eq "an empty index: nothing reported" "" "$("$s/diff-coverage.sh" "$work/sec-fail/index.json" "$work/exec.json" 7 3 | grep -v '^read=0$\|^total=0$')"

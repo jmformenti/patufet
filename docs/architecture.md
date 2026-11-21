@@ -95,7 +95,7 @@ Rules that make it work (decision 11):
   result) gets `fail` and `needs-human-review`, and no fix.
 - The reviewer reads the diff in parts (`scripts/diff-section.sh`): cut per file and between
   hunks, each small enough for one `Read`, listed in the prompt. A step after it counts the parts
-  it opened (`scripts/diff-coverage.sh`): the job summary shows `Diff read: X of Y parts`, and if
+  it opened, with `Read` or a Bash `cat` short enough to be shown whole (`scripts/diff-coverage.sh`): the job summary shows `Diff read: X of Y parts`, and if
   some are missing a comment on the PR names their files. The verdict stands either way.
 - The review cycle counter is the number of trusted comments carrying
   `<!-- patufet:review`. `fix-review` refuses to run once it reaches `max-review-cycles`
