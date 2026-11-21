@@ -249,11 +249,6 @@ jobs:
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
           SETUP: ${{ steps.setup-plan.outputs.run == 'true' && format('{0} ({1})', steps.setup.outcome, steps.setup-plan.outputs.note) || steps.setup-plan.outputs.note }}
-          DEPRECATED: ${{ inputs.java-version != '' && 'java-version ' || '' }}${{ inputs.node-version != '' && 'node-version' || '' }}
-        run: |
-          extra=()
-          if [ -n "$DEPRECATED" ]; then
-            echo "::warning::Deprecated input(s) $DEPRECATED: move them to .github/patufet/setup/action.yml (docs/customization.md#preparing-the-environment). They will be removed."
-            extra+=("Deprecated inputs: $DEPRECATED → .github/patufet/setup/action.yml")
-          fi
-          "$TPL_DIR/scripts/run-summary.sh" implement "$EXECUTION_FILE" "Issue: #$ISSUE_NUMBER" "Branch: $BRANCH" "Project setup: ${SETUP:-not reached}" "${extra[@]}"
+          JAVA_VERSION: ${{ inputs.java-version }}
+          NODE_VERSION: ${{ inputs.node-version }}
+        run: '"$TPL_DIR/scripts/run-summary.sh" implement "$EXECUTION_FILE" "Issue: #$ISSUE_NUMBER" "Branch: $BRANCH" "Project setup: ${SETUP:-not reached}" "$("$TPL_DIR/scripts/deprecated-inputs.sh" "$JAVA_VERSION" "$NODE_VERSION")"'

@@ -62,7 +62,8 @@ not in the agent.
 
 The project setup action (`.github/patufet/setup/action.yml`) follows the same rule: in
 fix-review it is the PR's version and runs only for those authors (`scripts/project-setup.sh`);
-in e2e it is the PR's, like the e2e hooks; in implement, the default branch's. It runs before the
+in e2e it is the PR's, like the e2e hooks; in implement, the branch it runs on (the default one,
+or the one a collaborator chose for a `workflow_dispatch`). It runs before the
 git credentials, without `GH_TOKEN` in its environment, but a composite action can read
 `github.token`. It should not use a dependency cache: a cache entry restored in these jobs runs
 with their permissions.

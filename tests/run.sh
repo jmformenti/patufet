@@ -189,13 +189,21 @@ for wf in implement fix-review; do
   before "$wf: setup before the git credentials" "$f" "uses: ./.github/patufet/setup" "gh auth setup-git"
   eq "$wf: setup without the job's token" 'GH_TOKEN: ""' "$(awk '/uses: .\/.github\/patufet\/setup/ {f=1; next} f && /GH_TOKEN/ {gsub(/^ +/, ""); print; exit} f && /- name:/ {exit}' "$f")"
   before "$wf: deprecated inputs before the action" "$f" "uses: actions/setup-node" "uses: ./.github/patufet/setup"
-  has "$wf: warns about the deprecated inputs" "::warning::Deprecated input(s) \$DEPRECATED" "$(cat "$f")"
+  has "$wf: reports the deprecated inputs" 'scripts/deprecated-inputs.sh" "$JAVA_VERSION" "$NODE_VERSION"' "$(cat "$f")"
 done
 f="$root/.github/workflows/fix-review.yml"
 has "fix-review: an untrusted author skips the setup" "RESTRICT: \${{ steps.trust.outputs.restrict || 'true' }}" "$(cat "$f")"
 before "fix-review: trust decided before the setup" "$f" "id: trust" "id: setup-plan"
 f="$root/.github/workflows/e2e.yml"
 before "e2e: setup before the up hook" "$f" "uses: ./.github/patufet/setup" "name: Start the application"
+
+echo "# deprecated-inputs.sh"
+eq "neither: nothing" "" "$("$s/deprecated-inputs.sh" "" "" 2>&1)"
+eq "java only: the summary line" "Deprecated inputs: java-version → .github/patufet/setup/action.yml" "$("$s/deprecated-inputs.sh" 21 "" 2>/dev/null)"
+eq "node only: the summary line" "Deprecated inputs: node-version → .github/patufet/setup/action.yml" "$("$s/deprecated-inputs.sh" "" 22 2>/dev/null)"
+eq "both: the summary line" "Deprecated inputs: java-version, node-version → .github/patufet/setup/action.yml" "$("$s/deprecated-inputs.sh" 21 22 2>/dev/null)"
+has "both: a warning annotation" "::warning::Deprecated input(s) java-version, node-version: move them to .github/patufet/setup/action.yml" "$("$s/deprecated-inputs.sh" 21 22 2>&1 >/dev/null)"
+eq "run-summary leaves an empty line out" "| A | b |" "$(GITHUB_STEP_SUMMARY=/dev/stdout "$s/run-summary.sh" x "" "A: b" "" | tail -1)"
 
 echo "# plan-section.sh"
 printf '## Plan\n' > "$work/plan.md"

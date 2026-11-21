@@ -252,7 +252,7 @@ Put the setup steps of your CI in a composite action at **`.github/patufet/setup
 
 | Stage | When | Which version |
 |---|---|---|
-| implement | after the checkout, before the git credentials and the agent | the default branch's |
+| implement | after the checkout, before the git credentials and the agent | the branch implement runs on: the default one, or the one a `workflow_dispatch` chose |
 | fix-review, fix-e2e | same | the PR's, when its author is `claude[bot]` or has write access; otherwise not at all (the agent cannot run the PR's code then) |
 | e2e | before the e2e-up hook | the PR's, like the hook |
 
