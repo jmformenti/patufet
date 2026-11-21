@@ -167,6 +167,18 @@ jobs:
             "$TPL_DIR/scripts/set-verdict-label.sh" "$PR_NUMBER" pass "$LABEL_PASS" "$LABEL_WARNING" "$LABEL_FAIL"
           fi
 
+      # The project's own setup (runtimes, tools, dependencies): a composite action at a
+      # fixed path, as `uses:` takes no expression (scripts/project-setup.sh). The job has no
+      # token in its environment; the action is the PR's, like the e2e-up hook
+      - name: Decide on the project setup
+        id: setup-plan
+        run: '"$TPL_DIR/scripts/project-setup.sh" .github/patufet/setup >> "$GITHUB_OUTPUT"'
+
+      - name: Set up the project (.github/patufet/setup)
+        id: setup
+        if: steps.setup-plan.outputs.run == 'true'
+        uses: ./.github/patufet/setup
+
       - name: Start the application (e2e-up hook)
         env:
           UP_SCRIPT: ${{ inputs.up-script }}
@@ -275,4 +287,5 @@ jobs:
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
           VERDICT: ${{ steps.verdict.outputs.verdict }}
-        run: '"$TPL_DIR/scripts/run-summary.sh" e2e "$EXECUTION_FILE" "PR: #$PR_NUMBER" "Verdict: ${VERDICT:-none}"'
+          SETUP: ${{ steps.setup-plan.outputs.run == 'true' && format('{0} ({1})', steps.setup.outcome, steps.setup-plan.outputs.note) || steps.setup-plan.outputs.note }}
+        run: '"$TPL_DIR/scripts/run-summary.sh" e2e "$EXECUTION_FILE" "PR: #$PR_NUMBER" "Verdict: ${VERDICT:-none}" "Project setup: ${SETUP:-not reached}"'

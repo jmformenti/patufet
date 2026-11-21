@@ -1,0 +1,39 @@
+# patufet — the project's setup: what the runner needs to build, test and run this
+# project (runtimes, tools, dependencies). Usually the setup steps of your CI.
+#
+# patufet runs it, when this file exists, before the agent in implement, fix-review and
+# fix-e2e, and before the e2e-up hook in e2e. Not in review, which runs no code. See
+# https://github.com/jmformenti/patufet/blob/main/docs/customization.md#preparing-the-environment
+#
+# - No dependency cache: these jobs can push and comment, and a poisoned cache would run
+#   with their permissions. setup-node and setup-uv can turn their cache on by
+#   themselves: the examples turn it off.
+# - It gets no GH_TOKEN in its environment, nor the repository's secrets.
+# - On a PR it is the PR's version (fix-review: only when the PR's author is trusted).
+#
+# Keep only what your project needs. Examples:
+name: Project setup for patufet
+description: Runtimes, tools and dependencies for the patufet agents
+runs:
+  using: composite
+  steps:
+    # Node.js
+    - uses: actions/setup-node@v7
+      with:
+        node-version: "22"
+        package-manager-cache: false
+    - run: npm ci
+      shell: bash
+
+    # Java (Temurin)
+    # - uses: actions/setup-java@v6
+    #   with:
+    #     distribution: temurin
+    #     java-version: "21"
+
+    # Python with uv (Python itself comes from uv, the dependencies from uv.lock)
+    # - uses: astral-sh/setup-uv@v6
+    #   with:
+    #     enable-cache: false
+    # - run: uv sync --locked
+    #   shell: bash

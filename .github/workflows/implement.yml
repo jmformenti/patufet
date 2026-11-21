@@ -17,11 +17,11 @@ on:
         type: string
         default: agent/issue-
       java-version:
-        description: Java version to set up on the runner (actions/setup-java, Temurin), to match CI. Empty = the runner's default
+        description: Deprecated, use .github/patufet/setup/action.yml. Java version to set up on the runner (actions/setup-java, Temurin), to match CI. Empty = the runner's default
         type: string
         default: ''
       node-version:
-        description: Node.js version to set up on the runner (actions/setup-node), to match CI. Empty = the runner's default
+        description: Deprecated, use .github/patufet/setup/action.yml. Node.js version to set up on the runner (actions/setup-node), to match CI. Empty = the runner's default
         type: string
         default: ''
       extra-instructions-file:
@@ -148,10 +148,6 @@ jobs:
           LABEL_TO_REFINE: ${{ inputs.label-to-refine }}
         run: gh issue edit "$ISSUE_NUMBER" --remove-label "$LABEL_READY" --remove-label "$LABEL_TO_REFINE" --add-label "$LABEL_IN_PROGRESS"
 
-      # persist-credentials is false on checkout; git pushes use gh as credential helper
-      - name: Configure git credentials for push
-        run: gh auth setup-git
-
       - name: Set up Java
         if: inputs.java-version != ''
         uses: actions/setup-java@v6
@@ -167,6 +163,24 @@ jobs:
           # Only selects Node.js. The automatic cache fails without a lockfile at the
           # root, and setup-node advises against it in jobs with elevated privileges
           package-manager-cache: false
+
+      # The project's own setup (runtimes, tools, dependencies): a composite action at a
+      # fixed path, as `uses:` takes no expression (scripts/project-setup.sh). Before the
+      # git credentials, and without the job's token in its environment
+      - name: Decide on the project setup
+        id: setup-plan
+        run: '"$TPL_DIR/scripts/project-setup.sh" .github/patufet/setup >> "$GITHUB_OUTPUT"'
+
+      - name: Set up the project (.github/patufet/setup)
+        id: setup
+        if: steps.setup-plan.outputs.run == 'true'
+        uses: ./.github/patufet/setup
+        env:
+          GH_TOKEN: ""
+
+      # persist-credentials is false on checkout; git pushes use gh as credential helper
+      - name: Configure git credentials for push
+        run: gh auth setup-git
 
       - name: Render the prompt
         id: prompt
@@ -234,4 +248,12 @@ jobs:
         if: always() && env.TPL_DIR != ''
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        run: '"$TPL_DIR/scripts/run-summary.sh" implement "$EXECUTION_FILE" "Issue: #$ISSUE_NUMBER" "Branch: $BRANCH"'
+          SETUP: ${{ steps.setup-plan.outputs.run == 'true' && format('{0} ({1})', steps.setup.outcome, steps.setup-plan.outputs.note) || steps.setup-plan.outputs.note }}
+          DEPRECATED: ${{ inputs.java-version != '' && 'java-version ' || '' }}${{ inputs.node-version != '' && 'node-version' || '' }}
+        run: |
+          extra=()
+          if [ -n "$DEPRECATED" ]; then
+            echo "::warning::Deprecated input(s) $DEPRECATED: move them to .github/patufet/setup/action.yml (docs/customization.md#preparing-the-environment). They will be removed."
+            extra+=("Deprecated inputs: $DEPRECATED → .github/patufet/setup/action.yml")
+          fi
+          "$TPL_DIR/scripts/run-summary.sh" implement "$EXECUTION_FILE" "Issue: #$ISSUE_NUMBER" "Branch: $BRANCH" "Project setup: ${SETUP:-not reached}" "${extra[@]}"

@@ -3,7 +3,8 @@
 Optional, off by default: set `e2e: true` on the caller's `pull-request` job (the bootstrap does
 it with `--with-e2e`). `e2e.yml` runs after a review whose verdict is `pass`, as a job of the same run
 (`needs: review`), or when a person adds the `pass` label. It starts your application on the
-GitHub runner through **your** hook script, installs the Playwright Chromium browser, lets
+GitHub runner through **your** hook script (after the [project setup action](customization.md#preparing-the-environment),
+if there is one), installs the Playwright Chromium browser, lets
 Claude drive the app through the Playwright MCP server, and reads the verdict.
 
 Enable it only if the whole application can be started on `ubuntu-latest` within the job

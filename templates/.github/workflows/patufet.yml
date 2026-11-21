@@ -37,7 +37,7 @@ jobs:
       issue-number: ${{ fromJSON(inputs.issue || github.event.issue.number) }}
       language: en
       # Build and test: the agent reproduces your CI workflows, or else what AGENTS.md / CLAUDE.md
-      # say. Set java-version / node-version, here and in pull-request, if CI pins them.
+      # say. Runtimes, tools and dependencies: .github/patufet/setup/action.yml (docs/customization.md).
 
   # everything patufet does with a pull request, as jobs of one run: wait for the CI of
   # the commit (every other workflow that runs on it) and review → verdict label →
