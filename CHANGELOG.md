@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.9.3 — 2026-11-21
+
 - Fix (security): review, fix-review, fix-e2e and e2e read the project's extra instructions
   (`.github/patufet/<stage>.md`) from the PR's base commit, not from the PR. A PR that changed
   `.github/patufet/review.md` changed the instructions of the agent reviewing it. A change to
