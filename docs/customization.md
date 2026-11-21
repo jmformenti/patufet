@@ -136,7 +136,8 @@ characters of Bash output Claude Code shows whole (a call that failed or was den
 nothing). The job summary
 shows `Diff read: X of Y parts`. When some part was not read, a comment on the PR names its
 files: **the verdict does not change**, it only tells the person who merges what to check by hand.
-An `allowed-tools` without `Read` reads nothing, so every review gets that comment.
+Keep `Read` in `allowed-tools`: the prompt asks for one `Read` per part, and without it only the
+parts read with a Bash command count.
 
 ### The CI-aware review
 

@@ -434,6 +434,15 @@ eq "a denied Bash call reads nothing" "read=1 total=6 " "$(cov)"
 bash_exec '{}' x x x x x x x x x "cat $(part 0)"
 eq "a Bash call with an error result reads nothing" "read=0 total=6 " "$(cov)"
 eq "Bash parts that fit in the output count" "read=2 total=6 " "$(bash_exec '{}' "cat $(part 0) $(part 4)"; cov)"
+eq "a glob after a part name does not count" "read=0 total=6 " "$(bash_exec '{}' "cat $(part 0)*" "cat x$(base 4)"; cov)"
+skipped=$(jq -r '[.[] | select(.skip)][0].path' "$idx")
+eq "a skipped part counts in the size of a Bash output" "read=0 total=6 " "$(bash_exec '{}' "cat $(part 0) $skipped"; PATUFET_BASH_OUTPUT_BYTES=$(jq --arg s "$skipped" '[.[0].bytes, (.[] | select(.path == $s) | .bytes)] | add - 1' "$idx") cov)"
+jq -n --arg a "$(part 0)" --arg b "$(part 4)" --arg c "$(part 5)" '[
+  {type: "assistant", message: {content: [{type: "tool_use", id: "r1", name: "Read", input: {file_path: $a}},
+    {type: "tool_use", id: "r2", name: "Read", input: {file_path: $b}}, {type: "tool_use", id: "r3", name: "Read", input: {file_path: $c}}]}},
+  {type: "user", message: {content: [{type: "tool_result", tool_use_id: "r1", is_error: true}, {type: "tool_result", tool_use_id: "r3", is_error: false}]}},
+  {type: "result", permission_denials: [{tool_name: "Read", tool_use_id: "r2"}]}]' > "$work/exec.json"
+eq "a failed or denied Read reads nothing; its sibling does" "read=1 total=6 " "$(cov)"
 eq "Bash parts too large together for the output do not count" "read=0 total=6 " "$(bash_exec '{}' "cat $(part 0) $(part 4)"; PATUFET_BASH_OUTPUT_BYTES=$(jq '[.[0].bytes, .[4].bytes] | add - 1' "$idx") cov)"
 : > "$GH_STUB_LOG"
 eq "no execution file: nothing reported" "" "$("$s/diff-coverage.sh" "$idx" "$work/missing.json" 7 3)"

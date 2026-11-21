@@ -37,13 +37,17 @@ calls=$(jq -c '
        else empty end]' "$exec_file" 2>/dev/null) || calls='[]'
 
 result=$(jq -c --argjson calls "$calls" --argjson limit "$bash_limit" '
-  map(select(.skip | not)) as $parts
-  # The parts a Bash command names, if they fit together in its output
+  # A part file name as a whole word of the command: not inside a longer name, not
+  # followed by a glob ("001-a.diff*" can print more than that part)
+  def names($c): (.path | split("/") | last | gsub("(?<m>[.*+?^$(){}|\\[\\]\\\\])"; "\\\(.m)")) as $re
+    | $c | test("(?<![A-Za-z0-9._-])" + $re + "(?![A-Za-z0-9._*?\\[{-])");
+  . as $all
+  # The parts a Bash command names, skipped ones too, if they fit together in its output
   | ([$calls[] | select(.name == "Bash") | .command as $c
-      | [$parts[] | select(.path as $p | ($c | contains($p)) or ($c | contains($p | split("/") | last)))]
+      | [$all[] | select(names($c))]
       | select(map(.bytes) | add <= $limit) | .[].path]) as $bash
   | ([$calls[] | select(.name == "Read") | .path] + $bash) as $reads
-  | $parts
+  | map(select(.skip | not))
   | map(. as $p | .read = any($reads[]; . == $p.path))
   | {read: map(select(.read)) | length, total: length,
      missing: map(select(.read | not) | .file) | unique}' "$index")
