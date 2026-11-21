@@ -16,14 +16,6 @@ on:
         description: Branch name prefix; the issue number is appended
         type: string
         default: agent/issue-
-      java-version:
-        description: Deprecated, use .github/patufet/setup/action.yml. Java version to set up on the runner (actions/setup-java, Temurin), to match CI. Empty = the runner's default
-        type: string
-        default: ''
-      node-version:
-        description: Deprecated, use .github/patufet/setup/action.yml. Node.js version to set up on the runner (actions/setup-node), to match CI. Empty = the runner's default
-        type: string
-        default: ''
       extra-instructions-file:
         description: Path (in the consumer repo) of a Markdown file appended to the base prompt
         type: string
@@ -148,22 +140,6 @@ jobs:
           LABEL_TO_REFINE: ${{ inputs.label-to-refine }}
         run: gh issue edit "$ISSUE_NUMBER" --remove-label "$LABEL_READY" --remove-label "$LABEL_TO_REFINE" --add-label "$LABEL_IN_PROGRESS"
 
-      - name: Set up Java
-        if: inputs.java-version != ''
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: ${{ inputs.java-version }}
-
-      - name: Set up Node.js
-        if: inputs.node-version != ''
-        uses: actions/setup-node@v7
-        with:
-          node-version: ${{ inputs.node-version }}
-          # Only selects Node.js. The automatic cache fails without a lockfile at the
-          # root, and setup-node advises against it in jobs with elevated privileges
-          package-manager-cache: false
-
       # The project's own setup (runtimes, tools, dependencies): a composite action at a
       # fixed path, as `uses:` takes no expression (scripts/project-setup.sh). Before the
       # git credentials, and without the job's token in its environment
@@ -249,6 +225,4 @@ jobs:
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
           SETUP: ${{ steps.setup-plan.outputs.run == 'true' && format('{0} ({1})', steps.setup.outcome, steps.setup-plan.outputs.note) || steps.setup-plan.outputs.note }}
-          JAVA_VERSION: ${{ inputs.java-version }}
-          NODE_VERSION: ${{ inputs.node-version }}
-        run: '"$TPL_DIR/scripts/run-summary.sh" implement "$EXECUTION_FILE" "Issue: #$ISSUE_NUMBER" "Branch: $BRANCH" "Project setup: ${SETUP:-not reached}" "$("$TPL_DIR/scripts/deprecated-inputs.sh" "$JAVA_VERSION" "$NODE_VERSION")"'
+        run: '"$TPL_DIR/scripts/run-summary.sh" implement "$EXECUTION_FILE" "Issue: #$ISSUE_NUMBER" "Branch: $BRANCH" "Project setup: ${SETUP:-not reached}"'

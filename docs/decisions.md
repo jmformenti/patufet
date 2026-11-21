@@ -267,5 +267,5 @@ got nothing. **Decision.** The consumer writes its CI's setup steps in a composi
 fixed path, `.github/patufet/setup/action.yml`, run before the agent (and before the e2e hook):
 patufet knows no technology, and one input per language would never cover tools like uv. The
 path is fixed because `uses:` takes no expression. It is the PR's version only where the PR's
-code runs anyway (fix-review for trusted authors, e2e). `java-version` / `node-version` are
-deprecated and go once the consumers have moved.
+code runs anyway (fix-review for trusted authors, e2e). `java-version` / `node-version` were
+deprecated in v1.10.0 and removed in v1.11.0, once the consumers had moved.
