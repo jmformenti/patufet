@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Breaking**: `java-version` and `node-version` are removed from `implement`, `fix-review` and
+  `pull-request`, as announced in v1.10.0. A caller that still passes them fails to start: move
+  them to `.github/patufet/setup/action.yml` (docs/migration.md) (#44).
+
 ## v1.10.0 — 2026-11-21
 
 - Feat: the project's setup, for any stack. When `.github/patufet/setup/action.yml` exists (a

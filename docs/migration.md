@@ -7,10 +7,10 @@ text change, a test) and run one full cycle before trusting it with real work.
 
 ## Upgrading
 
-### From `java-version` / `node-version` to the project setup action (v1.10.0)
+### From `java-version` / `node-version` to the project setup action (removed in v1.11.0)
 
-The two inputs are deprecated and will be removed: a caller that still passes them will then
-fail to start. Before that:
+Since v1.11.0 the two inputs no longer exist: a caller that still passes them fails to start
+(`Invalid input, java-version is not defined`). To move:
 
 1. Create `.github/patufet/setup/action.yml` with the same versions
    ([customization.md](customization.md#preparing-the-environment)):
@@ -45,7 +45,8 @@ working, since those workflows stay. To move to the single `pull-request` job, i
 1. Replace those four jobs with the `pull-request` job of
    [the template](../templates/.github/workflows/patufet.yml). Keep `implement` as it is.
 2. Copy your values into its `with:`. `language`, `model`, `human-reviewer`, `max-review-cycles`,
-   `java-version`, `node-version` and the `label-*` keep their names and are set once. `max-turns`,
+   and the `label-*` keep their names and are set once (`java-version` / `node-version`: see
+   above). `max-turns`,
    `allowed-tools`, `timeout-minutes` and `extra-instructions-file` take the stage as a prefix
    (`review-`, `fix-`, `e2e-`), and so does a `model` that differed between stages
    (`review-model`, `fix-model`, `e2e-model`); the e2e hooks are `e2e-up-script` / `e2e-down-script`

@@ -91,7 +91,6 @@ checks for the secret. Read its output: the final "Next steps" block and any `WA
   [docs/customization.md](docs/customization.md#the-ci-aware-review).
 - Build and test commands: the agents reproduce the CI workflows and fall back to `AGENTS.md`,
   `CLAUDE.md` or the README, so check that those describe them correctly.
-- Do not set `java-version` / `node-version`: they are deprecated.
 
 `.github/patufet/setup/action.yml` (create it only when the project needs something
 `ubuntu-latest` lacks: a runtime version, uv, the dependencies): a composite action with the

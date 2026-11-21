@@ -36,7 +36,6 @@ Common to `implement`, `review`, `fix-review`, `e2e`:
 |---|---|---|
 | `issue-number` | *(required)* | The caller passes `fromJSON(inputs.issue \|\| github.event.issue.number)`. |
 | `branch-prefix` | `agent/issue-` | Branch = prefix + issue number. Also used by review/e2e to find the linked issue. |
-| `java-version`, `node-version` | `''` | **Deprecated, to be removed**: use the [project setup action](#preparing-the-environment). Set up that version on the runner (`actions/setup-java` with Temurin, `actions/setup-node`). Also on `fix-review`. |
 | `label-ready`, `label-in-progress`, `label-to-refine`, `label-blocked` | `ready-to-implement`, `in-progress`, `to-refine`, `blocked` | See [Renaming the labels](#renaming-the-labels). |
 
 `review`:
@@ -94,7 +93,7 @@ same defaults (`tests/run.sh` checks it). The rule for the names:
 | `model` | `model` of every stage whose own input below is empty |
 | `review-model`, `fix-model`, `e2e-model` | `model` of `review`, `fix-review` (and `fix-e2e`), `e2e`; empty = `model` |
 | `ci-wait-timeout-minutes` | `review` |
-| `max-review-cycles`, `java-version`, `node-version` (the last two deprecated) | `fix-review` (and `fix-e2e`, which is the same workflow) |
+| `max-review-cycles` | `fix-review` (and `fix-e2e`, which is the same workflow) |
 | `install-playwright`, `playwright-mcp-version` | `e2e` |
 | `review-extra-instructions-file`, `review-max-turns`, `review-allowed-tools`, `review-timeout-minutes` | `review`, without the prefix |
 | `fix-extra-instructions-file`, `fix-max-turns`, `fix-allowed-tools`, `fix-timeout-minutes` | `fix-review` and `fix-e2e`, without the prefix |
@@ -285,8 +284,7 @@ More examples (Node, Java) in
   can still read `github.token`, so treat it as code with the job's permissions.
 - Your CI can reuse it (`uses: ./.github/patufet/setup`), if it does not need a cache.
 
-`java-version` / `node-version` still work and run before the action, with a deprecation warning;
-they will be removed (see [migration.md](migration.md)).
+`java-version` / `node-version` are gone since v1.11.0: see [migration.md](migration.md).
 
 ## `/plan-issue`
 

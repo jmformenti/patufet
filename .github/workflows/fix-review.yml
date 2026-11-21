@@ -14,14 +14,6 @@ on:
         description: Maximum number of automatic review reports before asking for a human
         type: number
         default: 10
-      java-version:
-        description: Deprecated, use .github/patufet/setup/action.yml. Java version to set up on the runner (actions/setup-java, Temurin), to match CI. Empty = the runner's default
-        type: string
-        default: ''
-      node-version:
-        description: Deprecated, use .github/patufet/setup/action.yml. Node.js version to set up on the runner (actions/setup-node), to match CI. Empty = the runner's default
-        type: string
-        default: ''
       human-reviewer:
         description: GitHub login (without @) to mention when the cycle limit is reached or the fix pushes nothing
         type: string
@@ -142,22 +134,6 @@ jobs:
           echo "restrict=$restrict" >> "$GITHUB_OUTPUT"
           echo "PR author: $AUTHOR; restrict_untrusted_prs: $restrict"
 
-      - name: Set up Java
-        if: inputs.java-version != '' && steps.gate.outputs.state == 'fix'
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: ${{ inputs.java-version }}
-
-      - name: Set up Node.js
-        if: inputs.node-version != '' && steps.gate.outputs.state == 'fix'
-        uses: actions/setup-node@v7
-        with:
-          node-version: ${{ inputs.node-version }}
-          # Only selects Node.js. The automatic cache fails without a lockfile at the
-          # root, and setup-node advises against it in jobs with elevated privileges
-          package-manager-cache: false
-
       # The project's own setup (runtimes, tools, dependencies): a composite action at a
       # fixed path, as `uses:` takes no expression (scripts/project-setup.sh). Before the
       # git credentials, and without the job's token in its environment
@@ -238,6 +214,4 @@ jobs:
           COUNT: ${{ steps.cycles.outputs.count }}
           MAX_CYCLES: ${{ inputs.max-review-cycles }}
           SETUP: ${{ steps.setup-plan.outputs.run == 'true' && format('{0} ({1})', steps.setup.outcome, steps.setup-plan.outputs.note) || steps.setup-plan.outputs.note }}
-          JAVA_VERSION: ${{ inputs.java-version }}
-          NODE_VERSION: ${{ inputs.node-version }}
-        run: '"$TPL_DIR/scripts/run-summary.sh" fix-review "$EXECUTION_FILE" "PR: #$PR_NUMBER" "Review cycles: $COUNT of $MAX_CYCLES" "Project setup: ${SETUP:-not reached}" "$("$TPL_DIR/scripts/deprecated-inputs.sh" "$JAVA_VERSION" "$NODE_VERSION")"'
+        run: '"$TPL_DIR/scripts/run-summary.sh" fix-review "$EXECUTION_FILE" "PR: #$PR_NUMBER" "Review cycles: $COUNT of $MAX_CYCLES" "Project setup: ${SETUP:-not reached}"'

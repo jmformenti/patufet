@@ -97,14 +97,6 @@ on:
         description: Maximum number of automatic review reports before asking for a human
         type: number
         default: 10
-      java-version:
-        description: fix-review and fix-e2e — Deprecated, use .github/patufet/setup/action.yml. Java version to set up on the runner (actions/setup-java, Temurin), to match CI. Empty = the runner's default
-        type: string
-        default: ''
-      node-version:
-        description: fix-review and fix-e2e — Deprecated, use .github/patufet/setup/action.yml. Node.js version to set up on the runner (actions/setup-node), to match CI. Empty = the runner's default
-        type: string
-        default: ''
       fix-extra-instructions-file:
         description: fix-review and fix-e2e — path (in the consumer repo) of a Markdown file appended to the base prompt
         type: string
@@ -222,8 +214,6 @@ jobs:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     with:
       max-review-cycles: ${{ inputs.max-review-cycles }}
-      java-version: ${{ inputs.java-version }}
-      node-version: ${{ inputs.node-version }}
       human-reviewer: ${{ inputs.human-reviewer }}
       extra-instructions-file: ${{ inputs.fix-extra-instructions-file }}
       language: ${{ inputs.language }}
@@ -288,8 +278,6 @@ jobs:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     with:
       max-review-cycles: ${{ inputs.max-review-cycles }}
-      java-version: ${{ inputs.java-version }}
-      node-version: ${{ inputs.node-version }}
       human-reviewer: ${{ inputs.human-reviewer }}
       extra-instructions-file: ${{ inputs.fix-extra-instructions-file }}
       language: ${{ inputs.language }}
